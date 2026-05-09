@@ -41,6 +41,49 @@ COUNTY_TEAMS = [
     {"city": "绍兴", "county": "上虞", "type": "county"},
     {"city": "绍兴", "county": "嵊州", "type": "county"},
     {"city": "绍兴", "county": "新昌", "type": "county"},
+    # （接你之前的COUNTY_TEAMS，继续往下加）
+    # 湖州代管县级队
+    {"city": "湖州", "county": "德清", "type": "county"},
+    {"city": "湖州", "county": "长兴", "type": "county"},
+    {"city": "湖州", "county": "安吉", "type": "county"},
+    # 嘉兴代管县级队
+    {"city": "嘉兴", "county": "海宁", "type": "county"},
+    {"city": "嘉兴", "county": "平湖", "type": "county"},
+    {"city": "嘉兴", "county": "桐乡", "type": "county"},
+    {"city": "嘉兴", "county": "嘉善", "type": "county"},
+    {"city": "嘉兴", "county": "海盐", "type": "county"},
+    # 金华代管县级队
+    {"city": "金华", "county": "兰溪", "type": "county"},
+    {"city": "金华", "county": "义乌", "type": "county"},
+    {"city": "金华", "county": "东阳", "type": "county"},
+    {"city": "金华", "county": "永康", "type": "county"},
+    {"city": "金华", "county": "武义", "type": "county"},
+    {"city": "金华", "county": "浦江", "type": "county"},
+    {"city": "金华", "county": "磐安", "type": "county"},
+    # 衢州代管县级队
+    {"city": "衢州", "county": "江山", "type": "county"},
+    {"city": "衢州", "county": "常山", "type": "county"},
+    {"city": "衢州", "county": "开化", "type": "county"},
+    {"city": "衢州", "county": "龙游", "type": "county"},
+    # 舟山代管县级队
+    {"city": "舟山", "county": "岱山", "type": "county"},
+    {"city": "舟山", "county": "嵊泗", "type": "county"},
+    # 台州代管县级队
+    {"city": "台州", "county": "温岭", "type": "county"},
+    {"city": "台州", "county": "临海", "type": "county"},
+    {"city": "台州", "county": "玉环", "type": "county"},
+    {"city": "台州", "county": "三门", "type": "county"},
+    {"city": "台州", "county": "天台", "type": "county"},
+    {"city": "台州", "county": "仙居", "type": "county"},
+    # 丽水代管县级队
+    {"city": "丽水", "county": "龙泉", "type": "county"},
+    {"city": "丽水", "county": "青田", "type": "county"},
+    {"city": "丽水", "county": "云和", "type": "county"},
+    {"city": "丽水", "county": "庆元", "type": "county"},
+    {"city": "丽水", "county": "缙云", "type": "county"},
+    {"city": "丽水", "county": "遂昌", "type": "county"},
+    {"city": "丽水", "county": "松阳", "type": "county"},
+    {"city": "丽水", "county": "景宁", "type": "county"},
 ]
 
 # 3. 合并所有队伍

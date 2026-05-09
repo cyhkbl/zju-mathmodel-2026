@@ -26,7 +26,7 @@ COUNTY_TEAMS = [
     {"city": "宁波", "county": "余姚", "type": "county"},
     {"city": "宁波", "county": "慈溪", "type": "county"},
     {"city": "宁波", "county": "奉化", "type": "county"},
-    {"city": "宁波", "county": "象山", "type": "county"},sss
+    {"city": "宁波", "county": "象山", "type": "county"},
     {"city": "宁波", "county": "宁海", "type": "county"},
     # 温州代管县级队
     {"city": "温州", "county": "瑞安", "type": "county"},

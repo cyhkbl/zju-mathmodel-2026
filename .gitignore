@@ -30,3 +30,4 @@ paper/main.pdf
 Thumbs.db
 *.fdb_latexmk
 *.fls
+*.xdv

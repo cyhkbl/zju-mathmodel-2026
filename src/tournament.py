@@ -15,7 +15,7 @@ from collections import defaultdict
 from .data import ALL_TEAMS, NUM_GROUPS, GROUP_SIZE, TEAM_BY_CODE
 
 
-# ── 实力模型 ─────────────────────────────────────────────────────
+# -- 实力模型 -----------------------------------------------------
 
 def build_strength_model(gdp_weight=0.7, random_weight=0.3, seed=42):
     """
@@ -44,7 +44,7 @@ def simulate_match(s_a, s_b, rng):
     return "B", "A"
 
 
-# ── 赛制1：当前赛制（小组循环 + 淘汰赛）────────────────────────────
+# -- 赛制1：当前赛制（小组循环 + 淘汰赛）----------------------------
 
 def simulate_group_stage(group_codes, strength, rng):
     """模拟单循环小组赛，返回组内排名。"""
@@ -92,7 +92,7 @@ def simulate_current_format(groups, strength, rng):
     return champion, all_points, qualifiers
 
 
-# ── 赛制2：瑞士轮制 ──────────────────────────────────────────────
+# -- 赛制2：瑞士轮制 ----------------------------------------------
 
 def simulate_swiss_system(all_codes, strength, n_rounds=6, rng=None):
     """瑞士轮制：O(n log n) 配对。"""
@@ -118,7 +118,7 @@ def simulate_swiss_system(all_codes, strength, n_rounds=6, rng=None):
     return champion, points, top32
 
 
-# ── 赛制3：双败淘汰制 ────────────────────────────────────────────
+# -- 赛制3：双败淘汰制 --------------------------------------------
 
 def simulate_double_elimination(all_codes, strength, rng):
     """
@@ -170,7 +170,7 @@ def simulate_double_elimination(all_codes, strength, rng):
     return champion
 
 
-# ── 蒙特卡洛综合模拟 ────────────────────────────────────────────
+# -- 蒙特卡洛综合模拟 --------------------------------------------
 
 def monte_carlo_comparison(groups, n_simulations=5000, seed=42):
     """对比三种赛制下各队夺冠概率。"""

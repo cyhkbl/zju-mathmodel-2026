@@ -28,3 +28,6 @@ paper/main.pdf
 # OS junk
 .DS_Store
 Thumbs.db
+*.fdb_latexmk
+*.fls
+*.xdv

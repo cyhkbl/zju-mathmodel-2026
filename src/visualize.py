@@ -18,7 +18,7 @@ from collections import defaultdict
 
 from .data import ALL_TEAMS, TEAM_BY_CODE, NUM_GROUPS, haversine_km
 
-# ── 中文字体 ─────────────────────────────────────────────────────
+# -- 中文字体 -----------------------------------------------------
 
 def _setup_chinese_font():
     """尝试设置中文字体。"""
@@ -44,7 +44,7 @@ def _setup_chinese_font():
 _setup_chinese_font()
 
 
-# ── 分组方案热力图 ───────────────────────────────────────────────
+# -- 分组方案热力图 -----------------------------------------------
 
 def plot_group_heatmap(groups, save_path=None, title="分组方案"):
     """绘制分组方案热力图（按GDP）。"""
@@ -77,7 +77,7 @@ def plot_group_heatmap(groups, save_path=None, title="分组方案"):
     return save_path
 
 
-# ── GDP 均衡箱线图 ───────────────────────────────────────────────
+# -- GDP 均衡箱线图 -----------------------------------------------
 
 def plot_gdp_balance(solutions, save_path=None):
     """对比多个方案的GDP均衡性箱线图。"""
@@ -109,7 +109,7 @@ def plot_gdp_balance(solutions, save_path=None):
     return save_path
 
 
-# ── 软约束违反对比 ───────────────────────────────────────────────
+# -- 软约束违反对比 -----------------------------------------------
 
 def plot_soft_violations(solutions, save_path=None):
     """对比各方案的软约束违反次数。"""
@@ -133,7 +133,7 @@ def plot_soft_violations(solutions, save_path=None):
     return save_path
 
 
-# ── 比赛地点地图（folium）─────────────────────────────────────────
+# -- 比赛地点地图（folium）-----------------------------------------
 
 def plot_venue_map(groups, venue_map, save_path=None):
     """用 folium 绘制比赛地点地图。"""
@@ -191,7 +191,7 @@ def plot_venue_map(groups, venue_map, save_path=None):
     return m
 
 
-# ── 抽签公平性热力图 ──────────────────────────────────────────────
+# -- 抽签公平性热力图 ----------------------------------------------
 
 def plot_lottery_fairness(fairness_result, save_path=None):
     """绘制抽签公平性热力图（各队落入各组的概率）。"""
@@ -222,7 +222,7 @@ def plot_lottery_fairness(fairness_result, save_path=None):
     return save_path
 
 
-# ── 赛制对比柱状图 ───────────────────────────────────────────────
+# -- 赛制对比柱状图 -----------------------------------------------
 
 def plot_tournament_probs(probs, strength, save_path=None, top_n=15):
     """绘制三种赛制下各队夺冠概率对比柱状图。"""
@@ -255,7 +255,7 @@ def plot_tournament_probs(probs, strength, save_path=None, top_n=15):
     return save_path
 
 
-# ── 距离分布图 ───────────────────────────────────────────────────
+# -- 距离分布图 ---------------------------------------------------
 
 def plot_distance_distribution(eval_result, save_path=None):
     """绘制各队到比赛地的距离分布。"""
@@ -293,7 +293,7 @@ def plot_distance_distribution(eval_result, save_path=None):
     return save_path
 
 
-# ── 综合评价雷达图 ───────────────────────────────────────────────
+# -- 综合评价雷达图 -----------------------------------------------
 
 def plot_radar_comparison(solutions, save_path=None):
     """综合评价雷达图。"""

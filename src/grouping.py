@@ -19,7 +19,7 @@ from .data import (
 )
 
 
-# ── 约束检查 ─────────────────────────────────────────────────────
+# -- 约束检查 -----------------------------------------------------
 
 def check_hard_constraints(groups: list[list[str]]) -> tuple[bool, str]:
     """
@@ -99,7 +99,7 @@ def evaluate_groups(groups: list[list[str]]) -> dict:
     }
 
 
-# ── 方案生成：约束规划（CP-SAT）─────────────────────────────────────
+# -- 方案生成：约束规划（CP-SAT）-------------------------------------
 
 def generate_csp_solution(seed: int = None) -> list[list[str]] | None:
     """用 OR-Tools CP-SAT 求解一个可行分组。"""
@@ -160,7 +160,7 @@ def generate_csp_solution(seed: int = None) -> list[list[str]] | None:
     return None
 
 
-# ── 方案生成：贪心 + 随机化 ──────────────────────────────────────
+# -- 方案生成：贪心 + 随机化 --------------------------------------
 
 def generate_greedy_random(seed: int = None) -> list[list[str]]:
     """
@@ -217,7 +217,7 @@ def generate_greedy_random(seed: int = None) -> list[list[str]]:
     return groups
 
 
-# ── 模拟退火优化 ─────────────────────────────────────────────────
+# -- 模拟退火优化 -------------------------------------------------
 
 def _swap_counties_between_groups(groups, rng):
     """随机交换两个组中的县级队，保持硬约束。"""
@@ -295,7 +295,7 @@ def simulated_annealing(
     return best, {"history": history, "final_cost": best_cost}
 
 
-# ── 多方案生成与评价 ─────────────────────────────────────────────
+# -- 多方案生成与评价 ---------------------------------------------
 
 def generate_solutions(n: int = 5, method: str = "mixed", seed: int = 42) -> list[dict]:
     """

@@ -1,3 +1,4 @@
+% !TEX program = xelatex
 \documentclass[a4paper,12pt]{article}
 \usepackage[UTF8]{ctex}
 \usepackage{amsmath,amssymb,amsfonts}
@@ -19,8 +20,10 @@
 
 \geometry{left=2.5cm,right=2.5cm,top=2.5cm,bottom=2.5cm}
 
+\newfontfamily\codefont{Noto Sans Mono CJK SC}[Scale=0.8]
+
 \lstset{
-  basicstyle=\ttfamily\small,
+  basicstyle=\codefont\small,
   breaklines=true,
   frame=single,
   numbers=left,

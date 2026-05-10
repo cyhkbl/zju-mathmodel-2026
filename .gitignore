@@ -6,6 +6,9 @@ __pycache__/
 
 # Output generated files
 output/
+src/output/
+paper/figures/
+paper/main.pdf
 
 # IDE
 .vscode/

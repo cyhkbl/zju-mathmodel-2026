@@ -1,0 +1,389 @@
+% !TEX program = xelatex
+\documentclass[a4paper,12pt]{article}
+\usepackage[UTF8]{ctex}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{geometry}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{cite}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{longtable}
+
+\geometry{left=2.5cm,right=2.5cm,top=2.5cm,bottom=2.5cm}
+
+\newfontfamily\codefont{Noto Sans Mono CJK SC}[Scale=0.8]
+
+\lstset{
+  basicstyle=\codefont\small,
+  breaklines=true,
+  frame=single,
+  numbers=left,
+  numberstyle=\tiny,
+  keywordstyle=\color{blue},
+  commentstyle=\color{gray},
+  stringstyle=\color{red},
+}
+
+\renewcommand{\algorithmicrequire}{\textbf{输入:}}
+\renewcommand{\algorithmicensure}{\textbf{输出:}}
+
+\title{\textbf{``浙超''联赛分组方案的数学建模与优化}}
+\author{陈逸恒\quad 李子墨\quad 任北辰}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+本文针对2025年浙江省市县联赛（``浙超''）的分组问题，建立了系统的数学模型与优化方案。64支参赛队伍（11个市级队和53个县级队）需分为16个小组，每组4队，并满足严格的行政隶属约束。
+
+针对分组方案生成，采用约束规划（CP-SAT）与模拟退火相结合的方法，生成了6个全部可行的分组方案，所有方案均满足硬约束且软约束违反次数为0。针对抽签方案，设计了分层随机抽签流程，并通过10000次蒙特卡洛模拟验证了公平性（可行解比例 $88.40\%$）。针对比赛地点选择，采用K-means++聚类与贪心优化算法，确定8个比赛城市，平均旅行距离123.5km，变异系数0.6602。针对赛制建议，基于Bradley-Terry实力模型和蒙特卡洛模拟，对比了当前赛制、简化瑞士轮制和近似双败淘汰制，发现近似双败淘汰制的Gini系数最低（$0.4161$），公平性最优。
+
+本文的方法具有良好的可扩展性和可解释性，可为类似体育赛事分组问题提供参考。
+\end{abstract}
+\newpage
+\tableofcontents
+\newpage
+
+\section{问题重述}
+
+2025年浙江省举办``浙超''市县联赛，参赛队伍包括11个市级队和53个县级队，共64支队伍。赛事要求将64支队伍分为16个小组（每组4队），先进行小组单循环赛，再进行32强淘汰赛决出冠军。
+
+分组需满足以下约束：
+\begin{enumerate}
+    \item \textbf{硬约束1}：11个市级队必须分配在不同小组（每组最多1个市级队）；
+    \item \textbf{硬约束2}：市级队不能与该市代管的县级队同组；
+    \item \textbf{软约束}：同一市代管的县级队尽量分配在不同小组。
+\end{enumerate}
+
+本文需要完成四个子任务：
+\begin{enumerate}
+    \item 生成符合约束的分组方案；
+    \item 设计公平透明的抽签方案；
+    \item 选择8个比赛地点；
+    \item 基于定量分析提出赛制改进建议。
+\end{enumerate}
+
+\section{模型假设与符号说明}
+
+\subsection{基本假设}
+\begin{itemize}
+    \item 以GDP作为队伍实力的代理指标（经济强市通常体育资源更丰富）；
+    \item 比赛结果采用Bradley-Terry模型描述胜负概率；
+    \item 地理距离采用Haversine公式计算球面距离；
+    \item 抽签过程完全随机，各队被分到各组的概率相等。
+\end{itemize}
+
+\subsection{符号说明}
+\begin{table}[H]
+\centering
+\begin{tabular}{ll}
+\toprule
+符号 & 含义 \\
+\midrule
+$T$ & 全部64支队伍的集合 \\
+$V$ & 11个市级队伍集合 \\
+$C$ & 53个县级队伍集合 \\
+$G$ & 16个小组，每组容量4 \\
+$S_i$ & 第$i$市代管的县级队伍集合 \\
+$s_t$ & 队伍$t$的实力分数 \\
+$p_{ij}$ & 队伍$i$战胜队伍$j$的概率 \\
+$d(i,j)$ & 两地球间的球面距离(km) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{分组方案生成（Task 1）}
+
+\subsection{问题分析}
+分组问题的核心是在满足硬约束的前提下，优化软约束。硬约束包括：每组恰好4队、每组最多1个市级队、市级队不与代管县同组。软约束要求同市县级队尽量不同组。
+
+\subsection{求解算法}
+
+\subsubsection{约束规划（CP-SAT）}
+首先使用Google OR-Tools的CP-SAT求解器生成满足硬约束的可行解。决策变量定义为：
+\[
+x_{ij} = \begin{cases} 1, & \text{队伍}i\text{分到组}j \\ 0, & \text{否则} \end{cases}
+\]
+
+约束条件：
+\begin{align}
+& \sum_{j=1}^{16} x_{ij} = 1, \quad \forall i \in T \quad \text{(每队恰好分到1组)} \\
+& \sum_{i=1}^{64} x_{ij} = 4, \quad \forall j \in G \quad \text{(每组恰好4队)} \\
+& \sum_{i \in V} x_{ij} \leq 1, \quad \forall j \in G \quad \text{(每组最多1个市级队)} \\
+& x_{vj} + x_{cj} \leq 1, \quad \forall v \in V, c \in S_v, j \in G \quad \text{(市-县不同组)}
+\end{align}
+
+\subsubsection{模拟退火优化}
+在CP-SAT可行解的基础上，使用模拟退火算法优化软约束。优化目标为最小化同市县级队被分到同组的对数。
+
+参数设置：初始温度 $T_{\text{start}} = 100$，终止温度 $T_{\text{end}} = 1$，冷却系数 $\alpha = 0.995$，采用几何冷却 $T \leftarrow T \times \alpha$。邻域操作为随机交换两个组中的县级队（保持硬约束不变）。
+
+\subsection{结果分析}
+共生成6个分组方案，其中方案1和方案2由CP-SAT生成，方案3--6由贪心+随机化生成，所有方案均经模拟退火优化。6个方案全部满足硬约束，软约束违反次数均为0。
+
+最优方案（方案1）的分组详情如表\ref{tab:solution1}所示。
+
+\begin{table}[H]
+\centering
+\caption{最优分组方案（方案1，csp+SA）}
+\label{tab:solution1}
+\begin{tabular}{ccl}
+\toprule
+组号 & GDP总和(亿元) & 队伍 \\
+\midrule
+1 & 3530 & 东阳, 嘉善, 诸暨, 龙港 \\
+2 & 3775 & 衢州, 青田, 安吉, 玉环 \\
+3 & 23620 & 杭州, 岱山, 嵊州, 海盐 \\
+4 & 3970 & 兰溪, 临海, 泰顺, 慈溪 \\
+5 & 7557 & 台州, 浦江, 建德, 龙泉 \\
+6 & 18084 & 宁波, 桐庐, 缙云, 江山 \\
+7 & 7692 & 金华, 象山, 平阳, 仙居 \\
+8 & 1420 & 文成, 永康, 常山, 三门 \\
+9 & 8040 & 绍兴, 开化, 庆元, 嵊泗 \\
+10 & 4010 & 云和, 德清, 海宁, 义乌 \\
+11 & 9252 & 嘉兴, 天台, 乐清, 武义 \\
+12 & 1130 & 松阳, 磐安, 龙游, 新昌 \\
+13 & 4322 & 丽水, 淳安, 平湖, 瑞安 \\
+14 & 10540 & 温州, 宁海, 长兴, 景宁 \\
+15 & 4943 & 舟山, 温岭, 桐乡, 永嘉 \\
+16 & 6285 & 湖州, 余姚, 遂昌, 苍南 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+该方案GDP均值为7386亿元，变异系数为0.78，表明组间经济实力存在一定差异（主要由杭州市GDP高达21980亿元导致），但整体仍在合理范围内。
+
+各方案的GDP均衡性和软约束违反情况如图\ref{fig:gdp}和图\ref{fig:soft}所示。
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\textwidth]{../output/task1_gdp_balance.png}
+\caption{各方案组间GDP均衡性对比}
+\label{fig:gdp}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.6\textwidth]{../output/task1_soft_violations.png}
+\caption{各方案软约束违反次数对比}
+\label{fig:soft}
+\end{figure}
+
+分组方案的综合评价雷达图如图\ref{fig:radar}所示。
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.7\textwidth]{../output/task1_radar.png}
+\caption{分组方案综合评价雷达图}
+\label{fig:radar}
+\end{figure}
+
+最优方案的分组热力图如图\ref{fig:heatmap}所示。
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\textwidth]{../output/task1_best_heatmap.png}
+\caption{最优方案分组热力图}
+\label{fig:heatmap}
+\end{figure}
+
+\section{抽签方案设计（Task 2）}
+
+\subsection{抽签流程}
+设计分层随机抽签方案，确保抽签过程公平透明：
+
+\textbf{第一层：市级队抽签}
+11个市级队通过随机抽签确定各自所在小组，市级队被分配到不同小组。
+
+\textbf{第二层：县级队抽签}
+每个市的县级队依次进行抽签。每次抽签时，优先从\textbf{不含同市其他县级队}的未满组中随机选择；
+若无此类可选组，则从所有符合硬约束的未满组（组未满且不含本市市级队）中随机选择。该优先规则体现了“同市县级队尽量不同组”的软约束，但不强制保证。
+
+\subsection{概率分析与公平性验证}
+
+采用蒙特卡洛方法模拟10000次抽签过程，统计以下指标：
+
+\begin{itemize}
+    \item \textbf{可行解比例}：88.40\%的抽签结果满足全部硬约束；
+    \item \textbf{平均软约束违反}：$1.52 \pm 1.44$次；
+    \item \textbf{均匀性}：各队落入各组的概率近似均匀（$\chi^2$检验不显著）。
+\end{itemize}
+
+违反次数分布：
+\begin{itemize}
+    \item 0次违反：约95.0\%
+    \item 1次违反：约1.9\%
+    \item 2次及以上：约3.1\%
+\end{itemize}
+
+抽签公平性热力图如图\ref{fig:fairness}所示。
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\textwidth]{../output/task2_fairness.png}
+\caption{抽签公平性：各队落入各组的概率分布}
+\label{fig:fairness}
+\end{figure}
+
+\section{比赛地点选择（Task 3）}
+
+\subsection{选址方法}
+采用两阶段方法选择比赛地点：
+
+\textbf{第一阶段：K-means++聚类}
+使用K-means++算法（$K=8$）将64支队伍按地理坐标聚类为8个赛区，每个赛区的聚类中心作为候选比赛地点。
+
+\textbf{第二阶段：贪心优化分配}
+将16个小组分配到8个比赛地点（每个地点最多承办2个组），目标是最小化总旅行距离。采用贪心策略：每次选择能使总距离增量最小的(组, 地点)对进行分配。
+
+旅行距离采用Haversine公式计算：
+\[
+d(i,j) = 2R \cdot \arcsin\left(\sqrt{\sin^2\frac{\Delta\varphi}{2} + \cos\varphi_1 \cos\varphi_2 \sin^2\frac{\Delta\lambda}{2}}\right)
+\]
+其中$R=6371$km为地球半径。
+
+\subsection{选址结果}
+最终确定8个比赛城市及其承办的小组如表\ref{tab:venues}所示。
+
+\begin{table}[H]
+\centering
+\caption{比赛地点及承办小组}
+\label{tab:venues}
+\begin{tabular}{cll}
+\toprule
+比赛地 & 承办组 & 各组平均距离(km) \\
+\midrule
+杭州 & 组10(112km), 组16(171km) & 141.5 \\
+金华 & 组12(82km), 组5(101km) & 91.5 \\
+丽水 & 组8(109km), 组13(132km) & 120.5 \\
+宁波 & 组4(173km), 组9(222km) & 197.5 \\
+衢州 & 组6(139km), 组2(154km) & 146.5 \\
+绍兴 & 组3(82km), 组1(125km) & 103.5 \\
+台州 & 组7(122km), 组15(130km) & 126.0 \\
+温州 & 组11(151km), 组14(151km) & 151.0 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+整体统计：平均距离134.8km，标准差90.8km，变异系数0.673。各队到比赛地的距离分布如图\ref{fig:distance}所示。
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\textwidth]{../output/task3_distance.png}
+\caption{各队到比赛地距离分布}
+\label{fig:distance}
+\end{figure}
+
+比赛地点的地理分布可通过交互式地图（\texttt{output/task3\_venue\_map.html}）查看，其中包含各队位置、比赛地点和连线。
+
+\section{赛制建议（Task 4）}
+
+\subsection{实力模型}
+基于GDP数据构建队伍实力分数。采用对数归一化处理GDP数据，并加入随机噪声以反映不确定性：
+\[
+s_t = 0.3 + 0.7 \times \frac{0.7 \cdot \text{norm}(\ln(\text{GDP}_t)) + 0.3 \cdot \varepsilon_t - \min}{\max - \min}
+\]
+其中$\varepsilon_t \sim U(0,1)$为随机噪声。实力分数归一化到$[0.3, 1.0]$区间。
+
+比赛胜负采用Bradley-Terry模型：
+\[
+P(i\text{胜}j) = \frac{s_i}{s_i + s_j}
+\]
+
+\subsection{三种赛制对比}
+
+\subsubsection{当前赛制}
+16组单循环小组赛（每组6场比赛），每组前2名晋级32强淘汰赛。共需$16 \times 6 + 31 = 127$场比赛。
+
+\subsubsection{简化瑞士轮制}
+本文采用简化瑞士轮模型：每轮按当前积分排序后相邻配对，不考虑标准瑞士轮中的重复对阵规避等细节。64队进行6轮瑞士轮配对，取前32名进入淘汰赛。共需 $6 \times 32 + 31 = 223$ 场比赛。
+
+\subsubsection{近似双败淘汰制}
+先进行3轮瑞士轮预选取前32名，再进入近似双败阶段：胜者组与败者组独立比赛，输一场进入败者组，输两场淘汰，最终胜者组冠军与败者组冠军单场决胜。本文实现为近似模型，非严格标准双败赛程。相比单败淘汰，该赛制为强队提供了更高容错。
+
+\subsection{蒙特卡洛模拟结果}
+通过5000次蒙特卡洛模拟，得到各队在三种赛制下的夺冠概率。前5名队伍的对比如表\ref{tab:probs}所示。
+
+\begin{table}[H]
+\centering
+\caption{各队夺冠概率对比（前5名）}
+\label{tab:probs}
+\begin{tabular}{lcccc}
+\toprule
+队伍 & 实力分数 & 当前赛制 & 简化瑞士轮 & 近似双败 \\
+\midrule
+宁波 & 1.0000 & 0.080 & 0.088 & 0.054 \\
+杭州 & 0.8917 & 0.060 & 0.080 & 0.022 \\
+温州 & 0.8800 & 0.046 & 0.052 & 0.048 \\
+台州 & 0.8453 & 0.056 & 0.060 & 0.040 \\
+嘉兴 & 0.8268 & 0.050 & 0.048 & 0.032 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Gini系数分析：
+\begin{itemize}
+    \item 当前赛制：$0.5459$
+    \item 简化瑞士轮制：$0.4904$
+    \item 近似双败淘汰制：$0.4146$
+\end{itemize}
+
+近似双败淘汰制的Gini系数最低，表明夺冠概率分布最为均匀，强弱队之间的差距相对最小，体现了更好的公平性。
+
+弱队（实力排名后20\%）的平均出线率为0.2708，说明当前赛制下弱队仍有合理的晋级机会。
+
+夺冠概率对比如图\ref{fig:probs}所示。
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\textwidth]{../output/task4_probs.png}
+\caption{不同赛制下各队夺冠概率对比}
+\label{fig:probs}
+\end{figure}
+
+\subsection{建议}
+综合以上分析，建议采用“小组循环+近似双败淘汰制”的混合赛制。该方案既保留了小组循环赛的观赏性（每队正好进行3场比赛），又通过近似双败淘汰制提高了淘汰赛阶段的公平性（Gini系数最低）。
+
+\section{结论与展望}
+
+\subsection{主要结论}
+\begin{enumerate}
+    \item 采用CP-SAT约束规划与模拟退火相结合的方法，成功生成6个全部可行的分组方案，所有方案均满足硬约束且软约束违反次数为0。
+    \item 设计了分层随机抽签方案，经10000次蒙特卡洛验证，可行解比例达85.8\%，各队分配近似均匀。
+    \item 通过K-means++聚类与贪心优化，确定8个比赛城市，平均旅行距离134.8km，变异系数0.673。
+    \item 基于Bradley-Terry模型的赛制分析表明，近似双败淘汰制的公平性最优（Gini系数 $0.4161$）。
+\end{enumerate}
+
+\subsection{改进方向}
+\begin{itemize}
+    \item 实力模型仅使用GDP作为代理指标，可引入更多因素（如历史战绩、注册球员数等）；
+    \item 比赛地点选择可进一步考虑交通基础设施（高铁站点、机场）的便利性；
+    \item 抽签方案可引入权重机制，使县级队的分配更加均衡。
+\end{itemize}
+
+\begin{thebibliography}{99}
+\bibitem{1} Google OR-Tools, ``CP-SAT Solver,'' \url{https://developers.google.com/optimization/cp/cp_solver}.
+\bibitem{2} Bradley, R. A., \& Terry, M. E. (1952). Rank analysis of incomplete block designs. \textit{Biometrika}, 39(3/4), 324-345.
+\bibitem{3} 浙江省统计局, ``2024年浙江省各市（县）GDP,'' 国家统计局.
+\bibitem{4} 浙江省民政厅, ``浙江省行政区划（2025年）.''
+\bibitem{5} Kirkpatrick, S., Gelatt, C. D., \& Vecchi, M. P. (1983). Optimization by simulated annealing. \textit{Science}, 220(4598), 671-680.
+\end{thebibliography}
+
+\appendix
+\section{支撑材料：核心源代码}
+\lstinputlisting[language=Python, caption={分组算法核心代码 (src/grouping.py)}]{../src/grouping.py}
+\lstinputlisting[language=Python, caption={抽签方案代码 (src/lottery.py)}]{../src/lottery.py}
+\lstinputlisting[language=Python, caption={赛制分析代码 (src/tournament.py)}]{../src/tournament.py}
+
+\end{document}

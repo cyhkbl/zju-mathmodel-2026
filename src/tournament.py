@@ -11,7 +11,7 @@ import random
 import numpy as np
 from collections import defaultdict
 
-from data import ALL_TEAMS, TEAM_BY_CODE
+from .data import ALL_TEAMS, TEAM_BY_CODE
 
 
 # =========================
@@ -461,7 +461,34 @@ def monte_carlo_comparison(groups: list[list[str]],
 
         ginis[fmt] = _gini(vals)
 
-    return probs, ginis, strength
+    return probs, strength
+
+
+def analyze_competitiveness(groups, strength, n_simulations=2000, seed=42):
+    """分析竞技水平展示度：弱队平均比赛场数和出线率。"""
+    rng = random.Random(seed)
+
+    sorted_teams = sorted(ALL_TEAMS, key=lambda t: strength[t["code"]])
+    weak_codes = set(t["code"] for t in sorted_teams[:13])
+
+    weak_qualify = defaultdict(int)
+
+    for sim in range(n_simulations):
+        sim_rng = random.Random(rng.randint(0, 2**31 - 1))
+        for g in groups:
+            ranking, _ = simulate_group_stage(g, strength, sim_rng)
+            for code in g:
+                if code in weak_codes and code in ranking[:2]:
+                    weak_qualify[code] += 1
+
+    qualify_rate = {c: weak_qualify[c] / n_simulations for c in weak_codes}
+
+    return {
+        "weak_teams": list(weak_codes),
+        "avg_matches": {c: 3.0 for c in weak_codes},  # 小组赛固定3场
+        "qualify_rate": qualify_rate,
+        "avg_qualify_rate": float(np.mean(list(qualify_rate.values()))),
+    }
 
 
 # =========================

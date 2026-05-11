@@ -1,181 +1,397 @@
 """
 Task 4：赛制建议与分析
 
-分析内容：
-1. 当前赛制（16组×4队 → 32强淘汰赛）公平性分析
-2. 备选赛制：瑞士轮制、双败淘汰制
-3. 蒙特卡洛模拟各队夺冠概率分布
-4. 竞技水平展示度分析
+方法：
+- 基于 GDP 构建 Bradley-Terry 实力模型
+- 蒙特卡洛模拟三种赛制：当前赛制、简化瑞士轮制、近似双败淘汰制
+- 用 Gini 系数衡量夺冠概率分布离散程度
 """
 
 import random
 import numpy as np
 from collections import defaultdict
 
-from .data import ALL_TEAMS, NUM_GROUPS, GROUP_SIZE, TEAM_BY_CODE
+from data import ALL_TEAMS, TEAM_BY_CODE
 
 
-# -- 实力模型 -----------------------------------------------------
+# =========================
+# 实力模型
+# =========================
 
-def build_strength_model(gdp_weight=0.7, random_weight=0.3, seed=42):
+def build_strength_model(gdp_weight=0.7,
+                         random_weight=0.3,
+                         seed=42) -> dict[str, float]:
     """
-    基于GDP构建队伍实力分数。
-    归一化到 [0.3, 1.0]。
+    基于 GDP 构建队伍实力分数。
+    对数归一化 + 随机噪声，映射到 [0.3, 1.0]。
     """
     rng = np.random.RandomState(seed)
+
     gdps = np.array([t["gdp"] for t in ALL_TEAMS], dtype=float)
+
     log_gdp = np.log1p(gdps)
-    norm_gdp = (log_gdp - log_gdp.min()) / (log_gdp.max() - log_gdp.min())
+
+    norm_gdp = (
+        (log_gdp - log_gdp.min())
+        / (log_gdp.max() - log_gdp.min())
+    )
+
     noise = rng.uniform(0, 1, len(ALL_TEAMS))
+
     raw = gdp_weight * norm_gdp + random_weight * noise
-    strength = 0.3 + 0.7 * (raw - raw.min()) / (raw.max() - raw.min())
-    return {ALL_TEAMS[i]["code"]: float(strength[i]) for i in range(len(ALL_TEAMS))}
+
+    strength = (
+        0.3
+        + 0.7 * (raw - raw.min())
+        / (raw.max() - raw.min())
+    )
+
+    return {
+        ALL_TEAMS[i]["code"]: float(strength[i])
+        for i in range(len(ALL_TEAMS))
+    }
 
 
-def match_prob(s_a, s_b):
-    """Bradley-Terry模型：A赢B的概率。"""
+def match_prob(s_a: float, s_b: float) -> float:
+    """Bradley-Terry：A 胜 B 的概率。"""
     return s_a / (s_a + s_b)
 
 
-def simulate_match(s_a, s_b, rng):
-    """模拟一场比赛，返回 (winner, loser)。"""
-    if rng.random() < match_prob(s_a, s_b):
-        return "A", "B"
-    return "B", "A"
+def simulate_match(a: str,
+                   b: str,
+                   strength: dict,
+                   rng: random.Random) -> tuple[str, str]:
+    """
+    模拟一场比赛。
+
+    返回：
+        (胜者代号, 败者代号)
+    """
+    if rng.random() < match_prob(strength[a], strength[b]):
+        return a, b
+    return b, a
 
 
-# -- 赛制1：当前赛制（小组循环 + 淘汰赛）----------------------------
+# =========================
+# 赛制 1：当前赛制
+# 16组单循环 + 32强淘汰赛
+# =========================
 
-def simulate_group_stage(group_codes, strength, rng):
-    """模拟单循环小组赛，返回组内排名。"""
-    n = len(group_codes)
+def simulate_group_stage(group_codes: list[str],
+                         strength: dict,
+                         rng: random.Random):
+    """
+    单循环小组赛。
+
+    返回：
+        ranking : 排名列表
+        points  : 积分字典
+    """
     points = {c: 0 for c in group_codes}
-    for i in range(n):
-        for j in range(i + 1, n):
+
+    for i in range(len(group_codes)):
+        for j in range(i + 1, len(group_codes)):
             a, b = group_codes[i], group_codes[j]
-            result = simulate_match(strength[a], strength[b], rng)
-            if result[0] == "A":
-                points[a] += 3
-            else:
-                points[b] += 3
-    ranking = sorted(group_codes, key=lambda c: points[c], reverse=True)
+
+            winner, loser = simulate_match(
+                a, b, strength, rng
+            )
+
+            points[winner] += 3
+
+    ranking = sorted(
+        group_codes,
+        key=lambda c: (points[c], strength[c]),
+        reverse=True
+    )
+
     return ranking, points
 
 
-def simulate_knockout(teams, strength, rng):
-    """模拟单败淘汰赛，返回冠军。"""
+def simulate_knockout(teams: list[str],
+                      strength: dict,
+                      rng: random.Random) -> str:
+    """
+    单败淘汰赛。
+
+    返回：
+        champion : 冠军代号
+    """
     current = list(teams)
+
     while len(current) > 1:
+
         next_round = []
+
+        rng.shuffle(current)
+
         for i in range(0, len(current), 2):
+
             if i + 1 < len(current):
+
                 a, b = current[i], current[i + 1]
-                result = simulate_match(strength[a], strength[b], rng)
-                winner = a if result[0] == "A" else b
+
+                winner, loser = simulate_match(
+                    a, b, strength, rng
+                )
+
                 next_round.append(winner)
+
             else:
+                # 奇数队轮空
                 next_round.append(current[i])
+
         current = next_round
+
     return current[0]
 
 
-def simulate_current_format(groups, strength, rng):
-    """模拟当前赛制：16组单循环 + 32强淘汰赛。"""
+def simulate_current_format(groups: list[list[str]],
+                            strength: dict,
+                            rng: random.Random):
+    """
+    当前赛制：
+    16组单循环 + 32强淘汰赛
+
+    返回：
+        champion
+        all_points
+        qualifiers
+    """
     qualifiers = []
+
     all_points = {}
+
     for g in groups:
-        ranking, points = simulate_group_stage(g, strength, rng)
+
+        ranking, points = simulate_group_stage(
+            g, strength, rng
+        )
+
         qualifiers.extend(ranking[:2])
+
         all_points.update(points)
+
     rng.shuffle(qualifiers)
-    champion = simulate_knockout(qualifiers, strength, rng)
+
+    champion = simulate_knockout(
+        qualifiers,
+        strength,
+        rng
+    )
+
     return champion, all_points, qualifiers
 
 
-# -- 赛制2：瑞士轮制 ----------------------------------------------
+# =========================
+# 赛制 2：简化瑞士轮制
+# =========================
 
-def simulate_swiss_system(all_codes, strength, n_rounds=6, rng=None):
-    """瑞士轮制：O(n log n) 配对。"""
+def simulate_swiss_system(all_codes: list[str],
+                          strength: dict,
+                          n_rounds: int = 6,
+                          rng: random.Random = None):
+    """
+    简化瑞士轮近似模型：
+
+    - 按当前积分排序后相邻配对
+    - 不考虑重复对阵规避等标准瑞士轮细节
+    - 6轮后取前32进入淘汰赛
+    """
     if rng is None:
         rng = random.Random()
 
     points = {c: 0.0 for c in all_codes}
 
-    for r in range(n_rounds):
-        # 按积分排序后顺序配对相邻队（O(n log n)）
-        sorted_teams = sorted(all_codes, key=lambda c: points[c], reverse=True)
-        for i in range(0, len(sorted_teams) - 1, 2):
-            a, b = sorted_teams[i], sorted_teams[i + 1]
-            result = simulate_match(strength[a], strength[b], rng)
-            if result[0] == "A":
-                points[a] += 1.0
-            else:
-                points[b] += 1.0
+    for _ in range(n_rounds):
 
-    ranking = sorted(all_codes, key=lambda c: points[c], reverse=True)
+        sorted_teams = sorted(
+            all_codes,
+            key=lambda c: (points[c], strength[c]),
+            reverse=True
+        )
+
+        for i in range(0, len(sorted_teams) - 1, 2):
+
+            a = sorted_teams[i]
+            b = sorted_teams[i + 1]
+
+            winner, loser = simulate_match(
+                a, b, strength, rng
+            )
+
+            points[winner] += 1.0
+
+    ranking = sorted(
+        all_codes,
+        key=lambda c: (points[c], strength[c]),
+        reverse=True
+    )
+
     top32 = ranking[:32]
-    champion = simulate_knockout(top32, strength, rng)
+
+    champion = simulate_knockout(
+        top32,
+        strength,
+        rng
+    )
+
     return champion, points, top32
 
 
-# -- 赛制3：双败淘汰制 --------------------------------------------
+# =========================
+# 赛制 3：近似双败淘汰制
+# =========================
 
-def simulate_double_elimination(all_codes, strength, rng):
+def simulate_double_elimination(all_codes: list[str],
+                                strength: dict,
+                                rng: random.Random) -> str:
     """
-    双败淘汰制：输两场才出局。
-    先做3轮瑞士轮预选取前32名，再双败淘汰。
+    近似双败淘汰机制：
+
+    说明：
+    - 先进行 3 轮积分预选
+    - 取前 32 名进入淘汰阶段
+    - 输一场进入败者组
+    - 输两场后淘汰
+    - 并非严格标准双败赛程
     """
-    # 预选：3轮瑞士轮
+
+    # ---------------------
+    # 预选：3轮积分赛
+    # ---------------------
+
     points = {c: 0.0 for c in all_codes}
-    for r in range(3):
-        sorted_teams = sorted(all_codes, key=lambda c: points[c], reverse=True)
-        for i in range(0, len(sorted_teams) - 1, 2):
-            a, b = sorted_teams[i], sorted_teams[i + 1]
-            result = simulate_match(strength[a], strength[b], rng)
-            if result[0] == "A":
-                points[a] += 1.0
-            else:
-                points[b] += 1.0
 
-    ranking = sorted(all_codes, key=lambda c: points[c], reverse=True)
+    for _ in range(3):
+
+        sorted_teams = sorted(
+            all_codes,
+            key=lambda c: (points[c], strength[c]),
+            reverse=True
+        )
+
+        for i in range(0, len(sorted_teams) - 1, 2):
+
+            a = sorted_teams[i]
+            b = sorted_teams[i + 1]
+
+            winner, loser = simulate_match(
+                a, b, strength, rng
+            )
+
+            points[winner] += 1.0
+
+    ranking = sorted(
+        all_codes,
+        key=lambda c: (points[c], strength[c]),
+        reverse=True
+    )
+
     top32 = ranking[:32]
 
-    # 双败淘汰：简洁实现
-    wins_needed = {c: 2 for c in top32}  # 需赢2场才安全
-    losses = {c: 0 for c in top32}
-    alive = set(top32)
+    # ---------------------
+    # 双败阶段
+    # ---------------------
 
-    rng.shuffle(top32)
-    current = list(top32)
+    winners = list(top32)
 
-    while len(current) > 1:
-        next_round = []
-        for i in range(0, len(current) - 1, 2):
-            a, b = current[i], current[i + 1]
-            result = simulate_match(strength[a], strength[b], rng)
-            winner = a if result[0] == "A" else b
-            loser = b if result[0] == "A" else a
-            losses[loser] += 1
-            if losses[loser] < 2:
-                next_round.append(loser)
-            next_round.append(winner)
-        if len(current) % 2 == 1:
-            next_round.append(current[-1])
-        current = next_round
+    losers = []
 
-        # 淘汰累积过多败场的队
-        current = [c for c in current if losses[c] < 2]
+    rng.shuffle(winners)
 
-    champion = current[0] if current else top32[0]
-    return champion
+    while True:
+
+        # -----------------
+        # 胜者组
+        # -----------------
+
+        next_winners = []
+
+        for i in range(0, len(winners), 2):
+
+            if i + 1 < len(winners):
+
+                a = winners[i]
+                b = winners[i + 1]
+
+                win, lose = simulate_match(
+                    a, b, strength, rng
+                )
+
+                next_winners.append(win)
+
+                losers.append(lose)
+
+            else:
+                next_winners.append(winners[i])
+
+        winners = next_winners
+
+        # -----------------
+        # 败者组
+        # -----------------
+
+        next_losers = []
+
+        for i in range(0, len(losers), 2):
+
+            if i + 1 < len(losers):
+
+                a = losers[i]
+                b = losers[i + 1]
+
+                win, lose = simulate_match(
+                    a, b, strength, rng
+                )
+
+                next_losers.append(win)
+
+            else:
+                next_losers.append(losers[i])
+
+        losers = next_losers
+
+        # -----------------
+        # 决赛
+        # -----------------
+
+        if len(winners) == 1 and len(losers) <= 1:
+
+            if len(losers) == 1:
+
+                a = winners[0]
+                b = losers[0]
+
+                winner, loser = simulate_match(
+                    a, b, strength, rng
+                )
+
+                return winner
+
+            return winners[0]
 
 
-# -- 蒙特卡洛综合模拟 --------------------------------------------
+# =========================
+# 蒙特卡洛模拟
+# =========================
 
-def monte_carlo_comparison(groups, n_simulations=5000, seed=42):
-    """对比三种赛制下各队夺冠概率。"""
+def monte_carlo_comparison(groups: list[list[str]],
+                           n_simulations: int = 5000,
+                           seed: int = 42):
+    """
+    对比三种赛制下各队夺冠概率。
+
+    返回：
+        probs
+        ginis
+        strength
+    """
+
     rng = random.Random(seed)
+
     strength = build_strength_model(seed=seed)
+
     all_codes = [t["code"] for t in ALL_TEAMS]
 
     results = {
@@ -184,84 +400,168 @@ def monte_carlo_comparison(groups, n_simulations=5000, seed=42):
         "double_elim": defaultdict(int),
     }
 
-    for sim in range(n_simulations):
-        sim_rng = random.Random(rng.randint(0, 2**31))
-        champ, _, _ = simulate_current_format(groups, strength, sim_rng)
+    for _ in range(n_simulations):
+
+        # 当前赛制
+        sim_rng = random.Random(
+            rng.randint(0, 2**31 - 1)
+        )
+
+        champ, _, _ = simulate_current_format(
+            groups,
+            strength,
+            sim_rng
+        )
+
         results["current"][champ] += 1
 
-        sim_rng2 = random.Random(rng.randint(0, 2**31))
-        champ2, _, _ = simulate_swiss_system(all_codes, strength, rng=sim_rng2)
-        results["swiss"][champ2] += 1
+        # 瑞士轮
+        sim_rng2 = random.Random(
+            rng.randint(0, 2**31 - 1)
+        )
 
-        sim_rng3 = random.Random(rng.randint(0, 2**31))
-        champ3 = simulate_double_elimination(all_codes, strength, sim_rng3)
-        results["double_elim"][champ3] += 1
+        champ, _, _ = simulate_swiss_system(
+            all_codes,
+            strength,
+            6,
+            sim_rng2
+        )
 
-    probs = {}
-    for fmt in results:
-        probs[fmt] = {c: cnt / n_simulations for c, cnt in results[fmt].items()}
+        results["swiss"][champ] += 1
 
-    return probs, strength
+        # 双败
+        sim_rng3 = random.Random(
+            rng.randint(0, 2**31 - 1)
+        )
 
+        champ = simulate_double_elimination(
+            all_codes,
+            strength,
+            sim_rng3
+        )
 
-def analyze_competitiveness(groups, strength, n_simulations=2000, seed=42):
-    """分析竞技水平展示度：弱队平均比赛场数和出线率。"""
-    rng = random.Random(seed)
+        results["double_elim"][champ] += 1
 
-    sorted_teams = sorted(ALL_TEAMS, key=lambda t: strength[t["code"]])
-    weak_codes = set(t["code"] for t in sorted_teams[:13])
-
-    weak_qualify = defaultdict(int)
-
-    for sim in range(n_simulations):
-        sim_rng = random.Random(rng.randint(0, 2**31))
-        for g in groups:
-            ranking, _ = simulate_group_stage(g, strength, sim_rng)
-            for code in g:
-                if code in weak_codes and code in ranking[:2]:
-                    weak_qualify[code] += 1
-
-    qualify_rate = {c: weak_qualify[c] / n_simulations for c in weak_codes}
-
-    return {
-        "weak_teams": list(weak_codes),
-        "avg_matches": {c: 3.0 for c in weak_codes},  # 小组赛固定3场
-        "qualify_rate": qualify_rate,
-        "avg_qualify_rate": np.mean(list(qualify_rate.values())),
+    probs = {
+        fmt: {
+            code: cnt / n_simulations
+            for code, cnt in counts.items()
+        }
+        for fmt, counts in results.items()
     }
 
-
-def format_tournament_comparison(probs, strength) -> str:
-    """格式化赛制对比结果。"""
-    lines = ["赛制对比分析", "=" * 60]
-
-    top_teams = sorted(ALL_TEAMS, key=lambda t: strength[t["code"]], reverse=True)[:15]
-
-    header = f"{'队伍':>8s}  {'实力':>6s}  {'当前赛制':>8s}  {'瑞士轮':>8s}  {'双败淘汰':>8s}"
-    lines.append(header)
-    lines.append("-" * 60)
-
-    for t in top_teams:
-        code = t["code"]
-        name = t["name"]
-        s = strength[code]
-        p1 = probs["current"].get(code, 0)
-        p2 = probs["swiss"].get(code, 0)
-        p3 = probs["double_elim"].get(code, 0)
-        lines.append(f"{name:>8s}  {s:.4f}  {p1:8.4f}  {p2:8.4f}  {p3:8.4f}")
+    ginis = {}
 
     for fmt in ["current", "swiss", "double_elim"]:
-        p = [probs[fmt].get(c, 0) for c in [t["code"] for t in ALL_TEAMS]]
-        gini = _gini(np.array(p))
-        lines.append(f"\n{fmt} 赛制 Gini系数: {gini:.4f}")
+
+        vals = np.array([
+            probs[fmt].get(t["code"], 0)
+            for t in ALL_TEAMS
+        ])
+
+        ginis[fmt] = _gini(vals)
+
+    return probs, ginis, strength
+
+
+# =========================
+# Gini 系数
+# =========================
+
+def _gini(x: np.ndarray) -> float:
+    """
+    计算 Gini 系数。
+
+    Gini 越低，
+    说明夺冠概率分布越均衡。
+    """
+    x = np.sort(x)
+
+    n = len(x)
+
+    if n == 0 or np.sum(x) == 0:
+        return 0.0
+
+    g = (
+        2 * np.sum(np.arange(1, n + 1) * x)
+        - (n + 1) * np.sum(x)
+    ) / (n * np.sum(x))
+
+    return float(max(g, 0.0))
+
+
+# =========================
+# 格式化输出
+# =========================
+
+def format_tournament_comparison(probs: dict,
+                                 strength: dict) -> str:
+    """
+    格式化赛制对比结果。
+    """
+
+    lines = [
+        "赛制对比分析",
+        "=" * 70
+    ]
+
+    top_teams = sorted(
+        ALL_TEAMS,
+        key=lambda t: strength.get(t["code"], 0),
+        reverse=True
+    )[:15]
+
+    header = (
+        f"{'队伍':>8s}  "
+        f"{'实力':>6s}  "
+        f"{'当前赛制':>10s}  "
+        f"{'瑞士轮':>10s}  "
+        f"{'近似双败':>10s}"
+    )
+
+    lines.append(header)
+
+    lines.append("-" * 70)
+
+    for t in top_teams:
+
+        code = t["code"]
+
+        name = t["name"]
+
+        s = strength.get(code, 0)
+
+        p1 = probs["current"].get(code, 0)
+
+        p2 = probs["swiss"].get(code, 0)
+
+        p3 = probs["double_elim"].get(code, 0)
+
+        lines.append(
+            f"{name:>8s}  "
+            f"{s:.4f}    "
+            f"{p1:10.4f}    "
+            f"{p2:10.4f}    "
+            f"{p3:10.4f}"
+        )
+
+    lines.append("\n")
+
+    for fmt, label in [
+        ("current", "当前赛制"),
+        ("swiss", "瑞士轮"),
+        ("double_elim", "近似双败"),
+    ]:
+
+        vals = np.array([
+            probs[fmt].get(t["code"], 0)
+            for t in ALL_TEAMS
+        ])
+
+        gini = _gini(vals)
+
+        lines.append(
+            f"{label} Gini 系数: {gini:.4f}"
+        )
 
     return "\n".join(lines)
-
-
-def _gini(x):
-    """计算Gini系数。"""
-    x = np.sort(x)
-    n = len(x)
-    if n == 0 or np.sum(x) == 0:
-        return 0
-    return (2 * np.sum((np.arange(1, n + 1) * x)) - (n + 1) * np.sum(x)) / (n * np.sum(x))

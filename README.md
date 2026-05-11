@@ -12,7 +12,7 @@
 │   ├── data.py            # 浙江省64支队伍数据（11市+53县，含GDP/坐标）
 │   ├── grouping.py        # Task 1: 分组算法（CP-SAT + 模拟退火）
 │   ├── lottery.py         # Task 2: 分层抽签方案 + Monte Carlo验证
-│   ├── venue.py           # Task 3: 比赛地点选择（K-means + 贪心优化）
+│   ├── venue.py           # Task 3: 比赛地点选择（候选筛选 + 贪心优化）
 │   ├── tournament.py      # Task 4: 赛制分析（Bradley-Terry + 蒙特卡洛）
 │   ├── visualize.py       # 可视化工具
 │   └── main.py            # 主程序：一键运行全部4个Task
@@ -47,9 +47,9 @@ python -m src.main
 - 卡方均匀性检验
 
 ### Task 3: 比赛地点选择
-- K-means++聚类（K=8）
-- 贪心优化最小化旅行距离
-- 平均距离134.8km
+- 枚举筛选8个候选比赛城市
+- 贪心优化最小化旅行距离，并保证每个地点承办2组
+- 平均距离129.2km
 
 ### Task 4: 赛制建议
 - Bradley-Terry实力模型
@@ -61,7 +61,6 @@ python -m src.main
 - Python 3.14
 - Google OR-Tools（约束规划求解）
 - NumPy, Pandas, Matplotlib, Seaborn
-- scikit-learn（聚类）
 - Folium（地图可视化）
 - LaTeX + ctex（论文排版）
 

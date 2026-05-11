@@ -2,14 +2,15 @@
 Task 3：比赛地点选择
 
 方法：
-1. K-means 聚类（K=8）划分赛区
+1. 默认从候选城市中筛选8个比赛地点
 2. 结合分组结果，优化分配使总旅行距离最小
-3. 多目标优化：公平性 × 影响力 × 便利性
-4. folium 地图可视化
+3. 保证每个地点承办2个小组
+4. folium 地图可视化（缺少 folium 时降级为简易 HTML）
 """
 
 import numpy as np
 from collections import defaultdict
+from itertools import combinations
 
 from .data import (
     ALL_TEAMS, CITY_CODES, NUM_GROUPS, TEAM_BY_CODE,
@@ -81,18 +82,11 @@ def optimize_venue_assignment(groups, candidate_cities=None, seed=42):
     if candidate_cities is None:
         candidate_cities = [t["code"] for t in ALL_TEAMS if t["is_city"]]
 
-    rng = np.random.RandomState(seed)
-
     # 计算所有队伍到所有候选城市的距离矩阵
     city_coords = {}
     for cc in candidate_cities:
         t = TEAM_BY_CODE[cc]
         city_coords[cc] = (t["lng"], t["lat"])
-
-    # 贪心分配：每次选能最小化新增总距离的城市
-    assigned_groups = set()
-    venue_map = {}  # group_idx -> city_code
-    city_group_count = defaultdict(int)
 
     # 对每个组，计算到每个候选城市的"组内平均距离"
     group_city_dist = {}
@@ -105,29 +99,50 @@ def optimize_venue_assignment(groups, candidate_cities=None, seed=42):
             )
             group_city_dist[(g_idx, cc)] = total / len(g)
 
+    def greedy_assign(venues):
+        """在给定场馆集合下，每轮选一个最小距离的(组, 地点)对。"""
+        city_group_count = defaultdict(int)
+        venue_map = {}
+        remaining_groups = set(range(NUM_GROUPS))
+
+        while remaining_groups:
+            best_pair = None
+            best_dist = float("inf")
+
+            for g_idx in remaining_groups:
+                for cc in venues:
+                    if city_group_count[cc] >= 2:
+                        continue
+                    d = group_city_dist[(g_idx, cc)]
+                    if d < best_dist:
+                        best_dist = d
+                        best_pair = (g_idx, cc)
+
+            if best_pair is None:
+                break
+
+            g_idx, cc = best_pair
+            venue_map[g_idx] = cc
+            city_group_count[cc] += 1
+            remaining_groups.remove(g_idx)
+
+        score = sum(group_city_dist[(g_idx, cc)] for g_idx, cc in venue_map.items())
+        return venue_map, score
+
+    # 若候选地点多于8个，先枚举选出8个，使后续16组恰好每地2组。
+    if len(candidate_cities) > 8:
+        best_subset = None
+        best_score = float("inf")
+        for subset in combinations(candidate_cities, 8):
+            subset_map, subset_score = greedy_assign(subset)
+            if len(subset_map) == NUM_GROUPS and subset_score < best_score:
+                best_subset = subset
+                best_score = subset_score
+        if best_subset is not None:
+            candidate_cities = list(best_subset)
+
     # 贪心：每轮选一个 (group, city) 对使得总距离增量最小
-    remaining_groups = set(range(NUM_GROUPS))
-
-    while remaining_groups:
-        best_pair = None
-        best_dist = float("inf")
-
-        for g_idx in remaining_groups:
-            for cc in candidate_cities:
-                if city_group_count[cc] >= 2:
-                    continue
-                d = group_city_dist[(g_idx, cc)]
-                if d < best_dist:
-                    best_dist = d
-                    best_pair = (g_idx, cc)
-
-        if best_pair is None:
-            break
-
-        g_idx, cc = best_pair
-        venue_map[g_idx] = cc
-        city_group_count[cc] += 1
-        remaining_groups.remove(g_idx)
+    venue_map, _ = greedy_assign(candidate_cities)
 
     return venue_map
 

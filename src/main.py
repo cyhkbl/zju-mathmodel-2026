@@ -37,6 +37,9 @@ from src.visualize import (
 
 
 OUTPUT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "output")
+LOTTERY_SIMULATIONS = 10000
+TOURNAMENT_SIMULATIONS = 5000
+COMPETITIVENESS_SIMULATIONS = 2000
 
 
 def ensure_output_dir():
@@ -72,7 +75,7 @@ def run_task1():
         report_lines.append("")
 
     report_path = os.path.join(OUTPUT_DIR, "task1_report.txt")
-    with open(report_path, "w") as f:
+    with open(report_path, "w", encoding="utf-8") as f:
         f.write("\n".join(report_lines))
     print(f"  报告已保存: {report_path}")
 
@@ -82,7 +85,13 @@ def run_task1():
     plot_radar_comparison(solutions, save_path=os.path.join(OUTPUT_DIR, "task1_radar.png"))
 
     # 选最优方案做热力图
-    best = min(solutions, key=lambda s: s["eval"]["soft_violations"])
+    best = min(
+        solutions,
+        key=lambda s: (
+            s["eval"]["soft_violations"],
+            s["eval"]["balance"]["cv"],
+        ),
+    )
     plot_group_heatmap(
         best["groups"],
         save_path=os.path.join(OUTPUT_DIR, "task1_best_heatmap.png"),
@@ -104,8 +113,9 @@ def run_task2(groups):
     print(format_lottery_result(city_groups, county_groups))
 
     # Monte Carlo 验证
-    print("\n  运行500次Monte Carlo模拟...")
-    fairness = simulate_lottery_fairness(n_simulations=500, seed=42)
+    print(f"\n  运行{LOTTERY_SIMULATIONS}次Monte Carlo模拟...")
+    fairness = simulate_lottery_fairness(n_simulations=LOTTERY_SIMULATIONS, seed=42)
+    n_sim = fairness["n_simulations"]
 
     report_lines = [
         "Task 2: 抽签方案分析",
@@ -114,22 +124,22 @@ def run_task2(groups):
         "1. 抽签流程设计",
         "-" * 40,
         "第一层：11个市级队随机抽签，分配到11个不同小组。",
-        "第二层：每市县级队依次抽签，从允许的组中随机选取。",
-        "允许的组 = 全部组 - 该市市级队所在组 - 已被同市其他县级队占据的组",
+        "第二层：每市县级队依次抽签，优先选择不含同市县级队的未满组；",
+        "若局部选择导致无可行位置，则通过随机回溯调整已抽结果，保证硬约束满足。",
         "",
-        "2. 公平性验证 (Monte Carlo, N=10000)",
+        f"2. 公平性验证 (Monte Carlo, N={n_sim})",
         "-" * 40,
-        f"  可行解比例: {fairness['feasible_rate']:.4f}",
+        f"  硬约束可行率: {fairness['feasible_rate']:.4f}",
         f"  平均软约束违反: {fairness['violation_mean']:.2f} ± {fairness['violation_std']:.2f}",
         "",
         "3. 违反次数分布:",
     ]
     for k in sorted(fairness["violation_distribution"].keys()):
         cnt = fairness["violation_distribution"][k]
-        report_lines.append(f"  {k}次违反: {cnt}次 ({cnt/10000*100:.1f}%)")
+        report_lines.append(f"  {k}次违反: {cnt}次 ({cnt/n_sim*100:.1f}%)")
 
     report_path = os.path.join(OUTPUT_DIR, "task2_report.txt")
-    with open(report_path, "w") as f:
+    with open(report_path, "w", encoding="utf-8") as f:
         f.write("\n".join(report_lines))
 
     plot_lottery_fairness(fairness, save_path=os.path.join(OUTPUT_DIR, "task2_fairness.png"))
@@ -154,7 +164,7 @@ def run_task3(groups):
     ]
 
     report_path = os.path.join(OUTPUT_DIR, "task3_report.txt")
-    with open(report_path, "w") as f:
+    with open(report_path, "w", encoding="utf-8") as f:
         f.write("\n".join(report_lines))
 
     plot_venue_map(
@@ -175,11 +185,15 @@ def run_task4(groups):
     print("Task 4: 赛制建议与分析")
     print("=" * 60)
 
-    print("  运行500次Monte Carlo模拟...")
-    probs, strength = monte_carlo_comparison(groups, n_simulations=500, seed=42)
+    print(f"  运行{TOURNAMENT_SIMULATIONS}次Monte Carlo模拟...")
+    probs, strength = monte_carlo_comparison(
+        groups, n_simulations=TOURNAMENT_SIMULATIONS, seed=42
+    )
 
     print("  分析竞技水平展示度...")
-    competitiveness = analyze_competitiveness(groups, strength, n_simulations=200, seed=42)
+    competitiveness = analyze_competitiveness(
+        groups, strength, n_simulations=COMPETITIVENESS_SIMULATIONS, seed=42
+    )
 
     comparison_text = format_tournament_comparison(probs, strength)
     print(comparison_text)
@@ -196,7 +210,7 @@ def run_task4(groups):
     ]
 
     report_path = os.path.join(OUTPUT_DIR, "task4_report.txt")
-    with open(report_path, "w") as f:
+    with open(report_path, "w", encoding="utf-8") as f:
         f.write("\n".join(report_lines))
 
     plot_tournament_probs(probs, strength, save_path=os.path.join(OUTPUT_DIR, "task4_probs.png"))
@@ -209,7 +223,13 @@ def main():
 
     # Task 1
     solutions = run_task1()
-    best = min(solutions, key=lambda s: s["eval"]["soft_violations"])
+    best = min(
+        solutions,
+        key=lambda s: (
+            s["eval"]["soft_violations"],
+            s["eval"]["balance"]["cv"],
+        ),
+    )
     best_groups = best["groups"]
 
     # Task 2

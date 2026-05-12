@@ -517,6 +517,68 @@ def _gini(x: np.ndarray) -> float:
     return float(max(g, 0.0))
 
 
+def _rankdata_average(x: np.ndarray) -> np.ndarray:
+    """返回平均秩，用于处理并列值的 Spearman 相关。"""
+    x = np.asarray(x, dtype=float)
+    n = len(x)
+    order = np.argsort(x, kind="mergesort")
+    ranks = np.empty(n, dtype=float)
+
+    i = 0
+    while i < n:
+        j = i
+        while j + 1 < n and x[order[j + 1]] == x[order[i]]:
+            j += 1
+        avg_rank = (i + j) / 2.0 + 1.0
+        ranks[order[i:j + 1]] = avg_rank
+        i = j + 1
+
+    return ranks
+
+
+def _spearman_corr(x: np.ndarray, y: np.ndarray) -> float:
+    """Spearman 秩相关系数。"""
+    rx = _rankdata_average(x)
+    ry = _rankdata_average(y)
+    rx = rx - np.mean(rx)
+    ry = ry - np.mean(ry)
+    denom = np.sqrt(np.sum(rx ** 2) * np.sum(ry ** 2))
+    if denom == 0:
+        return 0.0
+    return float(np.sum(rx * ry) / denom)
+
+
+def champion_alignment_metrics(probs: dict,
+                               strength: dict,
+                               top_n: int = 16) -> dict:
+    """
+    分析赛制是否保留竞技区分度。
+
+    指标：
+    - Spearman：实力分数与夺冠概率的秩相关，越高说明强队优势越能反映在结果中。
+    - top_strength_share：实力前 top_n 队的总夺冠概率占比。
+    """
+    codes = [t["code"] for t in ALL_TEAMS]
+    strength_vals = np.array([strength.get(c, 0.0) for c in codes])
+    top_strength = set(
+        sorted(codes, key=lambda c: strength.get(c, 0.0), reverse=True)[:top_n]
+    )
+
+    metrics = {}
+    for fmt in ["current", "swiss", "double_elim"]:
+        prob_vals = np.array([probs[fmt].get(c, 0.0) for c in codes])
+        top_prob = set(
+            sorted(codes, key=lambda c: probs[fmt].get(c, 0.0), reverse=True)[:top_n]
+        )
+        metrics[fmt] = {
+            "spearman": _spearman_corr(strength_vals, prob_vals),
+            "top_strength_share": float(sum(probs[fmt].get(c, 0.0) for c in top_strength)),
+            "top_overlap": len(top_strength & top_prob) / top_n,
+        }
+
+    return metrics
+
+
 # =========================
 # 格式化输出
 # =========================
@@ -589,6 +651,23 @@ def format_tournament_comparison(probs: dict,
 
         lines.append(
             f"{label} Gini 系数: {gini:.4f}"
+        )
+
+    alignment = champion_alignment_metrics(probs, strength)
+
+    lines.append("\n实力-结果一致性分析")
+    lines.append("-" * 70)
+
+    for fmt, label in [
+        ("current", "当前赛制"),
+        ("swiss", "瑞士轮"),
+        ("double_elim", "近似双败"),
+    ]:
+        m = alignment[fmt]
+        lines.append(
+            f"{label} Spearman相关: {m['spearman']:.4f}  "
+            f"实力前16队夺冠概率占比: {m['top_strength_share']:.4f}  "
+            f"前16重合率: {m['top_overlap']:.4f}"
         )
 
     return "\n".join(lines)

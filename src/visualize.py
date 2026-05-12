@@ -309,12 +309,6 @@ def plot_distance_distribution(eval_result, save_path=None):
     ax1.set_title("各队到比赛地距离分布")
     ax1.legend()
 
-    # 按组的距离箱线图
-    group_dists = defaultdict(list)
-    for code, d in eval_result["team_distances"].items():
-        # 需要知道 code 属于哪个组，这里用简单方法
-        pass
-
     # 用累计分布
     sorted_dists = np.sort(dists)
     cdf = np.arange(1, len(sorted_dists) + 1) / len(sorted_dists)

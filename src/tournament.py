@@ -461,7 +461,7 @@ def monte_carlo_comparison(groups: list[list[str]],
 
         ginis[fmt] = _gini(vals)
 
-    return probs, strength
+    return probs, ginis, strength
 
 
 def analyze_competitiveness(groups, strength, n_simulations=2000, seed=42):

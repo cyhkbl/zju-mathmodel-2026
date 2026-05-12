@@ -211,10 +211,18 @@ def generate_greedy_random(seed: int = None) -> list[list[str]]:
                     placed = True
                     break
             if not placed:
+                # 先尝试避开禁止组
                 for g_idx in range(NUM_GROUPS):
-                    if len(groups[g_idx]) < GROUP_SIZE:
+                    if len(groups[g_idx]) < GROUP_SIZE and g_idx != forbidden_group:
                         groups[g_idx].append(child_code)
+                        placed = True
                         break
+                # 极端兜底：允许放到任意未满组（不应触发）
+                if not placed:
+                    for g_idx in range(NUM_GROUPS):
+                        if len(groups[g_idx]) < GROUP_SIZE:
+                            groups[g_idx].append(child_code)
+                            break
  
     return groups
  

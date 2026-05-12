@@ -186,7 +186,7 @@ def run_task4(groups):
     print("=" * 60)
 
     print(f"  运行{TOURNAMENT_SIMULATIONS}次Monte Carlo模拟...")
-    probs, strength = monte_carlo_comparison(
+    probs, _, strength = monte_carlo_comparison(
         groups, n_simulations=TOURNAMENT_SIMULATIONS, seed=42
     )
 

@@ -3,15 +3,15 @@ Task 2：抽签方案设计
 
 方法：
 - 分层随机抽签：第一层市级队，第二层县级队
-- 县级队抽签时优先满足软约束（同市尽量不同组），
-  当所有满足软约束的组均不可用时允许违反软约束。
+- 县级队抽签优先满足软约束，并通过合法性验签与必要重抽保证硬约束；
+- 保留随机回溯作为极端兜底方案。
 
 修复说明：
 1. 修正原论文公式"允许的组"把软约束变成硬约束的问题。
-   县级队抽签时：
-   - 优先从"不含同市其他县级队"的未满组中随机选；
-   - 若没有此类组，则从所有符合硬约束的未满组中随机选。
-   这样软约束是"尽量满足"而非"强制满足"。
+2. 保留贪心抽签作为对照：优先从"不含同市其他县级队"的未满组中随机选；
+   若没有此类组，则从所有符合硬约束的未满组中随机选。
+3. 新增验签重抽版作为默认抽签方式，避免贪心策略走入死胡同导致
+   个别抽签结果不满足硬约束；随机回溯仅作为极端兜底。
 """
 
 import random
@@ -108,6 +108,129 @@ def draw_county_assignment_greedy(
     return county_assignment
 
 
+# -- 第二层：随机回溯版（默认，保证硬约束）--------------------------------------
+
+def draw_county_assignment_backtracking(
+    city_groups: dict[str, int],
+    seed: int = None,
+) -> dict[str, int]:
+    """
+    第二层（随机回溯版）：县级队随机抽签并保证硬约束。
+
+    做法：
+    - 先尝试把"同市县级队不同组"也作为约束求解；
+    - 若极端情况下无解，再放宽软约束，但仍保证每组容量和市-县不同组。
+
+    这样单次抽签不会出现硬约束不可行结果，同时保留随机性。
+    """
+    rng = random.Random(seed)
+
+    def solve(enforce_soft: bool) -> dict[str, int] | None:
+        group_capacity = [GROUP_SIZE for _ in range(NUM_GROUPS)]
+        for city_g in city_groups.values():
+            group_capacity[city_g] -= 1
+
+        assignment: dict[str, int] = {}
+        used_by_same_city = {city_code: set() for city_code in CITY_CODES}
+
+        def candidates_for(county_code: str) -> list[int]:
+            parent = PARENT_MAP[county_code]
+            forbidden_group = city_groups[parent]
+            candidates = [
+                g_idx
+                for g_idx in range(NUM_GROUPS)
+                if g_idx != forbidden_group and group_capacity[g_idx] > 0
+            ]
+            if enforce_soft:
+                candidates = [
+                    g_idx for g_idx in candidates
+                    if g_idx not in used_by_same_city[parent]
+                ]
+                rng.shuffle(candidates)
+                return candidates
+
+            rng.shuffle(candidates)
+            candidates.sort(
+                key=lambda g_idx: g_idx in used_by_same_city[parent]
+            )
+            return candidates
+
+        def backtrack(remaining: list[str]) -> bool:
+            if not remaining:
+                return True
+
+            scored = []
+            for county_code in remaining:
+                cands = candidates_for(county_code)
+                if not cands:
+                    return False
+                scored.append((len(cands), rng.random(), county_code, cands))
+
+            _, _, county_code, candidates = min(scored)
+            parent = PARENT_MAP[county_code]
+            next_remaining = [c for c in remaining if c != county_code]
+
+            for g_idx in candidates:
+                assignment[county_code] = g_idx
+                group_capacity[g_idx] -= 1
+                was_used = g_idx in used_by_same_city[parent]
+                used_by_same_city[parent].add(g_idx)
+
+                if backtrack(next_remaining):
+                    return True
+
+                group_capacity[g_idx] += 1
+                del assignment[county_code]
+                if not was_used:
+                    used_by_same_city[parent].remove(g_idx)
+
+            return False
+
+        remaining_counties = COUNTY_CODES[:]
+        rng.shuffle(remaining_counties)
+        if backtrack(remaining_counties):
+            return assignment
+        return None
+
+    strict_solution = solve(enforce_soft=True)
+    if strict_solution is not None:
+        return strict_solution
+
+    relaxed_solution = solve(enforce_soft=False)
+    if relaxed_solution is None:
+        raise RuntimeError("随机回溯抽签无法找到满足硬约束的县级队分配")
+    return relaxed_solution
+
+
+# -- 第二层：验签重抽版（默认，速度快且保证硬约束）-------------------------------
+
+def draw_county_assignment_retry(
+    city_groups: dict[str, int],
+    seed: int = None,
+    max_attempts: int = 100,
+) -> dict[str, int]:
+    """
+    第二层（验签重抽版）：用贪心随机抽签产生候选，再验签。
+
+    若候选结果违反硬约束，则更换随机种子重抽；若多次重抽仍未成功，
+    再调用随机回溯兜底。由于贪心候选的硬约束成功率较高，实际运行很快。
+    """
+    from .grouping import check_hard_constraints
+
+    rng = random.Random(seed)
+    for _ in range(max_attempts):
+        attempt_seed = rng.randint(0, 2**31 - 1)
+        county_groups = draw_county_assignment_greedy(
+            city_groups, seed=attempt_seed
+        )
+        groups = lottery_to_groups(city_groups, county_groups)
+        ok, _ = check_hard_constraints(groups)
+        if ok:
+            return county_groups
+
+    return draw_county_assignment_backtracking(city_groups, seed)
+
+
 # -- 第二层备用：CP-SAT 精确版 --------------------------------------------------
 
 def draw_county_assignment_csp(
@@ -169,7 +292,7 @@ def draw_county_assignment_csp(
 
 # -- 完整抽签流程 ---------------------------------------------------------------
 
-def run_lottery(seed: int = None, method: str = "greedy") -> tuple[dict, dict]:
+def run_lottery(seed: int = None, method: str = "retry") -> tuple[dict, dict]:
     """
     执行一次完整抽签。
 
@@ -186,8 +309,12 @@ def run_lottery(seed: int = None, method: str = "greedy") -> tuple[dict, dict]:
     # 第二层：县级队抽签
     if method == "csp":
         county_groups = draw_county_assignment_csp(city_groups, seed)
-    else:
+    elif method == "backtracking":
+        county_groups = draw_county_assignment_backtracking(city_groups, seed)
+    elif method == "greedy":
         county_groups = draw_county_assignment_greedy(city_groups, seed)
+    else:
+        county_groups = draw_county_assignment_retry(city_groups, seed)
 
     return city_groups, county_groups
 
@@ -230,7 +357,7 @@ def simulate_lottery_fairness(
 
     for sim in range(n_simulations):
         sim_seed = rng.randint(0, 2**31 - 1)
-        city_groups, county_groups = run_lottery(seed=sim_seed, method="greedy")
+        city_groups, county_groups = run_lottery(seed=sim_seed, method="retry")
         groups = lottery_to_groups(city_groups, county_groups)
 
         # 统计各队在各个组出现的次数

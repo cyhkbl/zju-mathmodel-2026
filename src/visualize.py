@@ -137,8 +137,46 @@ def plot_soft_violations(solutions, save_path=None):
 
 def plot_venue_map(groups, venue_map, save_path=None):
     """用 folium 绘制比赛地点地图。"""
-    import folium
-    from folium.plugins import MarkerCluster
+    try:
+        import folium
+    except ModuleNotFoundError:
+        if save_path:
+            from html import escape
+
+            venue_groups = defaultdict(list)
+            for g_idx, cc in venue_map.items():
+                venue_groups[cc].append(g_idx)
+
+            rows = []
+            for cc, g_idxs in sorted(venue_groups.items()):
+                v = TEAM_BY_CODE[cc]
+                group_text = []
+                for g_idx in g_idxs:
+                    names = "、".join(TEAM_BY_CODE[c]["name"] for c in groups[g_idx])
+                    group_text.append(f"组{g_idx + 1}: {names}")
+                rows.append(
+                    "<tr>"
+                    f"<td>{escape(v['name'])}</td>"
+                    f"<td>{v['lng']:.2f}, {v['lat']:.2f}</td>"
+                    f"<td>{escape('；'.join(group_text))}</td>"
+                    "</tr>"
+                )
+
+            html = (
+                "<!doctype html><html><head><meta charset='utf-8'>"
+                "<title>比赛地点方案</title>"
+                "<style>body{font-family:sans-serif;line-height:1.6;padding:24px;}"
+                "table{border-collapse:collapse;width:100%;}"
+                "td,th{border:1px solid #ccc;padding:8px;text-align:left;}</style>"
+                "</head><body><h1>比赛地点方案</h1>"
+                "<p>当前环境未安装 folium，已生成简易 HTML 版本。</p>"
+                "<table><tr><th>比赛地</th><th>坐标</th><th>承办小组</th></tr>"
+                + "".join(rows)
+                + "</table></body></html>"
+            )
+            with open(save_path, "w", encoding="utf-8") as f:
+                f.write(html)
+        return save_path
 
     # 浙江中心
     m = folium.Map(location=[29.1, 120.5], zoom_start=7, tiles="CartoDB positron")

@@ -107,7 +107,10 @@ def evaluate_groups(groups: list[list[str]]) -> dict:
  
 def generate_csp_solution(seed: int = None) -> list[list[str]] | None:
     """用 OR-Tools CP-SAT 求解一个可行分组。"""
-    from ortools.sat.python import cp_model
+    try:
+        from ortools.sat.python import cp_model
+    except ModuleNotFoundError:
+        return None
  
     if seed is not None:
         random.seed(seed)
@@ -322,7 +325,9 @@ def generate_solutions(n: int = 6, method: str = "mixed", seed: int = 42) -> lis
             sol = generate_csp_solution(seed=seed + i)
             if sol is None:
                 sol = generate_greedy_random(seed=seed + i)
-            base_method = "csp"
+                base_method = "greedy-fallback"
+            else:
+                base_method = "csp"
         else:
             sol = generate_greedy_random(seed=seed + i)
             base_method = "greedy"

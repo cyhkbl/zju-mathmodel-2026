@@ -55,6 +55,7 @@ def run_task1():
     solutions = generate_solutions(n=6, method="mixed", seed=42)
 
     # 对每个方案做SA优化
+    # 对每个方案做SA优化
     for sol in solutions:
         if sol["eval"]["soft_violations"] > 0:
             print(f"  方案{sol['id']} 软约束违反={sol['eval']['soft_violations']}，尝试SA优化...")
@@ -66,7 +67,10 @@ def run_task1():
                 sol["groups"] = optimized
                 sol["eval"] = opt_eval
                 sol["method"] += "+SA"
+                sol["sa_history"] = sa_info.get("history", [])   # 新增：保存 SA 历史
                 print(f"    → 优化后违反={opt_eval['soft_violations']}")
+        else:
+            sol["sa_history"] = []   # 已经最优，无历史
 
     # 输出
     report_lines = ["Task 1: 分组方案", "=" * 60, ""]

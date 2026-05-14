@@ -112,25 +112,35 @@ def plot_gdp_balance(solutions, save_path=None):
 # -- 软约束违反对比 -----------------------------------------------
 
 def plot_soft_violations(solutions, save_path=None):
-    """对比各方案的软约束违反次数。"""
-    fig, ax = plt.subplots(figsize=(8, 5))
+    """画模拟退火优化过程中软约束违反对数的下降曲线"""
+    import matplotlib.pyplot as plt
 
-    ids = [f"方案{s['id']}" for s in solutions]
-    violations = [s["eval"]["soft_violations"] for s in solutions]
+    plt.figure(figsize=(10, 6))
+    has_data = False
+    for sol in solutions:
+        history = sol.get("sa_history", [])
+        if history:
+            iters = [h["iter"] for h in history]
+            costs = [h["cost"] for h in history]
+            plt.plot(iters, costs, marker='.', markersize=2, label=f"方案 {sol['id']}")
+            has_data = True
 
-    bars = ax.bar(ids, violations, color=plt.cm.Set2(np.linspace(0, 1, len(solutions))))
-    ax.set_ylabel("软约束违反次数")
-    ax.set_title("各方案软约束违反次数对比")
+    if has_data:
+        plt.xlabel("迭代次数")
+        plt.ylabel("软约束违反对数")
+        plt.title("模拟退火优化过程（软约束下降曲线）")
+        plt.legend()
+        plt.grid(True, alpha=0.3)
+        plt.tight_layout()
+    else:
+        plt.text(0.5, 0.5, "所有方案初始即无软约束违反", ha='center', va='center', fontsize=14)
+        plt.title("软约束违反情况")
 
-    for bar, v in zip(bars, violations):
-        ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.1,
-                str(v), ha="center", va="bottom", fontweight="bold")
-
-    plt.tight_layout()
     if save_path:
-        fig.savefig(save_path, dpi=150, bbox_inches="tight")
-    plt.close(fig)
-    return save_path
+        plt.savefig(save_path, dpi=150)
+        plt.close()
+    else:
+        plt.show()
 
 
 # -- 比赛地点地图（folium）-----------------------------------------

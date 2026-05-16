@@ -112,35 +112,58 @@ def plot_gdp_balance(solutions, save_path=None):
 # -- 软约束违反对比 -----------------------------------------------
 
 def plot_soft_violations(solutions, save_path=None):
-    """画模拟退火优化过程中软约束违反对数的下降曲线"""
-    import matplotlib.pyplot as plt
+    """画各方案软约束违反次数：全部为0时用汇总卡片，否则用柱状图"""
+    violations = [sol["eval"]["soft_violations"] for sol in solutions]
 
-    plt.figure(figsize=(10, 6))
-    has_data = False
-    for sol in solutions:
-        history = sol.get("sa_history", [])
-        if history:
-            iters = [h["iter"] for h in history]
-            costs = [h["cost"] for h in history]
-            plt.plot(iters, costs, marker='.', markersize=2, label=f"方案 {sol['id']}")
-            has_data = True
+    if all(v == 0 for v in violations):
+        # 全部为0：左边汇总卡片 + 右边柱状图
+        fig, (ax_card, ax_bar) = plt.subplots(1, 2, figsize=(14, 5),
+                                               gridspec_kw={"width_ratios": [1, 1.2]})
 
-    if has_data:
-        plt.xlabel("迭代次数")
-        plt.ylabel("软约束违反对数")
-        plt.title("模拟退火优化过程（软约束下降曲线）")
-        plt.legend()
-        plt.grid(True, alpha=0.3)
-        plt.tight_layout()
+        # 左侧卡片
+        ax_card.set_xlim(0, 1)
+        ax_card.set_ylim(0, 1)
+        ax_card.axis("off")
+        ax_card.text(0.5, 0.75, "各方案软约束违反次数对比", fontsize=15, fontweight="bold",
+                     ha="center", va="center")
+        ax_card.text(0.5, 0.45, f"全部 {len(solutions)} 个方案\n软约束违反次数均为 0",
+                     fontsize=13, ha="center", va="center", color="#2d8a4e")
+        ax_card.text(0.5, 0.2, "✓ 硬约束与软约束全部满足",
+                     fontsize=12, ha="center", va="center", color="#888888")
+        rect = plt.Rectangle((0.05, 0.05), 0.9, 0.9, linewidth=1.5,
+                              edgecolor="#2d8a4e", facecolor="#f0faf3",
+                              transform=ax_card.transAxes, zorder=-1)
+        ax_card.add_patch(rect)
+
+        # 右侧柱状图
+        labels = [f"方案{sol['id']}" for sol in solutions]
+        bars = ax_bar.bar(labels, violations, color="#4e79a7", edgecolor="white", width=0.6)
+        ax_bar.set_ylabel("软约束违反次数")
+        ax_bar.set_title("各方案软约束违反次数")
+        ax_bar.set_ylim(0, 1)
+        ax_bar.set_yticks([0, 1])
+        ax_bar.grid(True, alpha=0.3, axis="y")
     else:
-        plt.text(0.5, 0.5, "所有方案初始即无软约束违反", ha='center', va='center', fontsize=14)
-        plt.title("软约束违反情况")
+        # 有违反：柱状图
+        fig, ax = plt.subplots(figsize=(10, 6))
+        labels = [f"方案{sol['id']}" for sol in solutions]
+        colors = ["#4e79a7" if v == 0 else "#e15759" for v in violations]
+        bars = ax.bar(labels, violations, color=colors, edgecolor="white", width=0.6)
+        for bar, v in zip(bars, violations):
+            ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.05,
+                    str(v), ha="center", va="bottom", fontsize=11, fontweight="bold")
+        ax.set_ylabel("软约束违反次数")
+        ax.set_title("各方案软约束违反次数对比")
+        ax.set_ylim(0, max(max(violations) * 1.3, 1))
+        ax.grid(True, alpha=0.3, axis="y")
+        ax.axhline(y=0, color="green", linestyle="--", alpha=0.5, label="理想值(0)")
+        ax.legend()
 
+    plt.tight_layout()
     if save_path:
-        plt.savefig(save_path, dpi=150)
-        plt.close()
-    else:
-        plt.show()
+        fig.savefig(save_path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    return save_path
 
 
 # -- 比赛地点地图（folium）-----------------------------------------

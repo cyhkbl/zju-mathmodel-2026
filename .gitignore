@@ -8,7 +8,6 @@ __pycache__/
 output/
 src/output/
 paper/figures/
-paper/main.pdf
 
 # IDE
 .vscode/

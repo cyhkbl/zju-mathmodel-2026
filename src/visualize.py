@@ -112,26 +112,43 @@ def plot_gdp_balance(solutions, save_path=None):
 # -- 软约束违反对比 -----------------------------------------------
 
 def plot_soft_violations(solutions, save_path=None):
-    """画各方案软约束违反次数柱状图"""
-    fig, ax = plt.subplots(figsize=(10, 6))
-
-    labels = [f"方案{sol['id']}" for sol in solutions]
+    """画各方案软约束违反次数：全部为0时用汇总卡片，否则用柱状图"""
     violations = [sol["eval"]["soft_violations"] for sol in solutions]
-    colors = ["#4e79a7" if v == 0 else "#e15759" for v in violations]
 
-    bars = ax.bar(labels, violations, color=colors, edgecolor="white", width=0.6)
+    if all(v == 0 for v in violations):
+        # 全部为0：画一个汇总卡片
+        fig, ax = plt.subplots(figsize=(10, 4))
+        ax.set_xlim(0, 1)
+        ax.set_ylim(0, 1)
+        ax.axis("off")
 
-    # 在柱子上方标注数值
-    for bar, v in zip(bars, violations):
-        ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.05,
-                str(v), ha="center", va="bottom", fontsize=11, fontweight="bold")
+        ax.text(0.5, 0.75, "各方案软约束违反次数对比", fontsize=16, fontweight="bold",
+                ha="center", va="center")
+        ax.text(0.5, 0.45, f"全部 {len(solutions)} 个方案软约束违反次数均为 0",
+                fontsize=14, ha="center", va="center", color="#2d8a4e")
+        ax.text(0.5, 0.25, "✓ 硬约束与软约束全部满足",
+                fontsize=13, ha="center", va="center", color="#888888")
 
-    ax.set_ylabel("软约束违反次数")
-    ax.set_title("各方案软约束违反次数对比")
-    ax.set_ylim(0, max(max(violations) * 1.3, 1))
-    ax.grid(True, alpha=0.3, axis="y")
-    ax.axhline(y=0, color="green", linestyle="--", alpha=0.5, label="理想值(0)")
-    ax.legend()
+        # 背景框
+        rect = plt.Rectangle((0.05, 0.08), 0.9, 0.84, linewidth=1.5,
+                              edgecolor="#2d8a4e", facecolor="#f0faf3",
+                              transform=ax.transAxes, zorder=-1)
+        ax.add_patch(rect)
+    else:
+        # 有违反：柱状图
+        fig, ax = plt.subplots(figsize=(10, 6))
+        labels = [f"方案{sol['id']}" for sol in solutions]
+        colors = ["#4e79a7" if v == 0 else "#e15759" for v in violations]
+        bars = ax.bar(labels, violations, color=colors, edgecolor="white", width=0.6)
+        for bar, v in zip(bars, violations):
+            ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.05,
+                    str(v), ha="center", va="bottom", fontsize=11, fontweight="bold")
+        ax.set_ylabel("软约束违反次数")
+        ax.set_title("各方案软约束违反次数对比")
+        ax.set_ylim(0, max(max(violations) * 1.3, 1))
+        ax.grid(True, alpha=0.3, axis="y")
+        ax.axhline(y=0, color="green", linestyle="--", alpha=0.5, label="理想值(0)")
+        ax.legend()
 
     plt.tight_layout()
     if save_path:

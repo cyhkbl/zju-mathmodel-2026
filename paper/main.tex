@@ -448,66 +448,17 @@ Mimo & v2.5 pro & 小米集团 \\
 \end{tabular}
 \end{table}
 
-\subsection{使用目的和环节}
-
-\textbf{由队员独立完成的核心工作：}
-\begin{itemize}
-    \item 数学建模：约束规划模型的建立、Bradley-Terry实力模型的推导、模拟退火参数的选取、蒙特卡洛模拟框架的设计
-    \item 算法设计：CP-SAT约束条件的构建、分层抽签方案的流程设计、贪心选址策略的制定、双败淘汰赛制的模拟逻辑
-    \item 数据分析与结论：对Gini系数、Spearman相关等指标的解读，赛制优劣的判断与建议
-    \item 论文撰写：全部正文内容的撰写、公式推导、结果分析
-\end{itemize}
-
-\textbf{AI工具辅助的边缘工作：}
-\begin{itemize}
-    \item 代码调试：排查Python运行时错误（如numpy版本兼容性、matplotlib中文字体配置）
-    \item 可视化优化：调整matplotlib图表的配色、标签、布局参数
-    \item LaTeX排版：辅助处理表格对齐、图片引用、页码设置等排版细节
-    \item 数据校验：核对论文中引用的数据与代码输出是否一致
-    \item 代码重构：将部分重复代码提取为函数，优化代码结构
-\end{itemize}
-
 \subsection{关键交互记录}
 
-\textbf{示例1：代码调试（Claude Code + Claude Opus 4.7）}
+代码调试（Claude Code + Claude Opus 4.7）：运行 src/main.py 报错 \texttt{ModuleNotFoundError}，检查发现 requirements.txt 缺少 ortools 依赖，手动添加后解决。
 
-提示词：运行 src/main.py 报错 \texttt{ModuleNotFoundError: No module named 'ortools'}，帮我检查 requirements.txt 是否遗漏了依赖。
+可视化调整（Hermes Agent + GPT 5.5）：软约束违反次数图在所有方案均为0时显示为空白柱状图，采纳双栏布局建议（左侧汇总卡片+右侧柱状图），配色由队员手动调整。
 
-回复：requirements.txt 中缺少 ortools，建议添加 \texttt{ortools>=9.8}。
+数据校验（Hermes Agent + Mimo v2.5 pro）：核对论文表3夺冠概率数据与代码 seed=42 输出，逐项比对确认一致。
 
-采纳与修改：采纳建议，手动将 \texttt{ortools>=9.8} 添加到 requirements.txt 中。
+LaTeX排版（OpenAI Codex + GPT 5.5）：页码位置不符合竞赛要求，采用 fancyhdr 包设置页脚居中，页边距由队员手动调整。
 
-\textbf{示例2：可视化调整（Hermes Agent + GPT 5.5）}
-
-提示词：图2（软约束违反次数对比）目前所有方案都是0，柱状图看起来是空的，如何改进展示效果？
-
-回复：建议改为双栏布局：左侧放绿色汇总卡片说明"全部6方案均为0"，右侧保留柱状图。
-
-采纳与修改：采纳布局建议，但卡片的配色和字体大小由队员手动调整，使其与论文整体风格一致。
-
-\textbf{示例3：数据校验（Hermes Agent + Mimo v2.5 pro）}
-
-提示词：论文中表3的夺冠概率数据需要与代码seed=42的实际输出核对，请逐项比对。
-
-回复：逐项列出代码输出数据，与论文数据完全一致，无差异。
-
-采纳与修改：确认数据无误，未做修改。
-
-\textbf{示例4：LaTeX排版（OpenAI Codex + GPT 5.5）}
-
-提示词：按照竞赛格式要求，页码需要在页脚居中显示，当前页码位置不对。
-
-回复：建议使用 fancyhdr 包，设置 \texttt{\textbackslash pagestyle\{plain\}} 并配合 \texttt{\textbackslash fancyfoot[C]\{\textbackslash thepage\}}。
-
-采纳与修改：采纳方案，由队员调整了页边距和页眉页脚的具体数值。
-
-\textbf{示例5：代码重构（Claude Code + Claude Opus 4.7）}
-
-提示词：\texttt{\_repair\_soft\_violations} 函数目前只支持移动，不支持满组交换，帮我补充交换逻辑。
-
-回复：提供了包含交换逻辑的函数实现，包括硬约束检查和软约束检查。
-
-采纳与修改：采纳核心逻辑，但由队员重写了约束检查部分，使其与项目中其他函数的检查方式保持一致。
+代码重构（Claude Code + Claude Opus 4.7）：补充 \texttt{\_repair\_soft\_violations} 函数的满组交换逻辑，约束检查部分由队员重写以保持项目一致性。
 
 \subsection{采纳和人工修改情况总结}
 
@@ -523,7 +474,5 @@ OpenAI Codex & 约5次 & 约80\% & LaTeX模板微调，页边距数值修改 \\
 \bottomrule
 \end{tabular}
 \end{table}
-
-总体原则：AI工具仅用于辅助编程和排版等技术性工作，所有数学建模决策、算法设计、结果分析和论文撰写均由队员独立完成。AI生成的代码均经过队员审查和测试后才纳入项目。
 
 \end{document}

@@ -116,24 +116,33 @@ def plot_soft_violations(solutions, save_path=None):
     violations = [sol["eval"]["soft_violations"] for sol in solutions]
 
     if all(v == 0 for v in violations):
-        # 全部为0：画一个汇总卡片
-        fig, ax = plt.subplots(figsize=(10, 4))
-        ax.set_xlim(0, 1)
-        ax.set_ylim(0, 1)
-        ax.axis("off")
+        # 全部为0：左边汇总卡片 + 右边柱状图
+        fig, (ax_card, ax_bar) = plt.subplots(1, 2, figsize=(14, 5),
+                                               gridspec_kw={"width_ratios": [1, 1.2]})
 
-        ax.text(0.5, 0.75, "各方案软约束违反次数对比", fontsize=16, fontweight="bold",
-                ha="center", va="center")
-        ax.text(0.5, 0.45, f"全部 {len(solutions)} 个方案软约束违反次数均为 0",
-                fontsize=14, ha="center", va="center", color="#2d8a4e")
-        ax.text(0.5, 0.25, "✓ 硬约束与软约束全部满足",
-                fontsize=13, ha="center", va="center", color="#888888")
-
-        # 背景框
-        rect = plt.Rectangle((0.05, 0.08), 0.9, 0.84, linewidth=1.5,
+        # 左侧卡片
+        ax_card.set_xlim(0, 1)
+        ax_card.set_ylim(0, 1)
+        ax_card.axis("off")
+        ax_card.text(0.5, 0.75, "各方案软约束违反次数对比", fontsize=15, fontweight="bold",
+                     ha="center", va="center")
+        ax_card.text(0.5, 0.45, f"全部 {len(solutions)} 个方案\n软约束违反次数均为 0",
+                     fontsize=13, ha="center", va="center", color="#2d8a4e")
+        ax_card.text(0.5, 0.2, "✓ 硬约束与软约束全部满足",
+                     fontsize=12, ha="center", va="center", color="#888888")
+        rect = plt.Rectangle((0.05, 0.05), 0.9, 0.9, linewidth=1.5,
                               edgecolor="#2d8a4e", facecolor="#f0faf3",
-                              transform=ax.transAxes, zorder=-1)
-        ax.add_patch(rect)
+                              transform=ax_card.transAxes, zorder=-1)
+        ax_card.add_patch(rect)
+
+        # 右侧柱状图
+        labels = [f"方案{sol['id']}" for sol in solutions]
+        bars = ax_bar.bar(labels, violations, color="#4e79a7", edgecolor="white", width=0.6)
+        ax_bar.set_ylabel("软约束违反次数")
+        ax_bar.set_title("各方案软约束违反次数")
+        ax_bar.set_ylim(0, 1)
+        ax_bar.set_yticks([0, 1])
+        ax_bar.grid(True, alpha=0.3, axis="y")
     else:
         # 有违反：柱状图
         fig, ax = plt.subplots(figsize=(10, 6))

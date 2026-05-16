@@ -6,7 +6,6 @@
 \usepackage{float}
 \usepackage{geometry}
 \usepackage{caption}
-\usepackage{cite}
 \usepackage{booktabs}
 \usepackage{multirow}
 \usepackage{array}
@@ -15,8 +14,14 @@
 \usepackage{xcolor}
 \usepackage{hyperref}
 \usepackage{listings}
+\usepackage{fancyhdr}
 
 \geometry{left=2.5cm,right=2.5cm,top=2.5cm,bottom=2.5cm}
+
+% 页眉页脚设置：页码居中显示在页脚
+\pagestyle{plain}
+\renewcommand{\headrulewidth}{0pt}
+\fancyfoot[C]{\thepage}
 
 \newfontfamily\codefont{consola.ttf}[Path=/mnt/c/Windows/Fonts/, Scale=0.8]
 
@@ -36,38 +41,14 @@
 
 \begin{document}
 
-%--------------------封面页--------------------------%
-\begin{titlepage}
+%--------------------摘要专用页（第1页）--------------------%
+\setcounter{page}{1}
+
 \begin{center}
-
-\vspace*{1cm}
-
-% 浙大校徽和校名
-\includegraphics[width=0.25\textwidth]{figures/zju_logo.png}
-\hspace{0.5cm}
-\includegraphics[width=0.5\textwidth]{figures/zju_char.png}
-
-\vspace{2cm}
-
-% 论文标题
-{\heiti\Huge\textbf{``浙超''联赛分组方案的数学建模与优化}}
-
-\vspace{2.5cm}
-
-% 作者信息
-{\kaishu\Large 队员 \hspace{1cm} 陈逸恒 \quad 李子墨 \quad 任北辰 \\}
-
-\vspace{2cm}
-
-{\large\today}
-
+{\heiti\Large\textbf{``浙超''联赛分组方案的数学建模与优化}}
 \end{center}
-\end{titlepage}
 
-\thispagestyle{empty}
-\setcounter{page}{0}
-
-%--------------------正文开始-------------------------%
+\vspace{0.5cm}
 
 \begin{abstract}
 本文针对2025年浙江省市县联赛（``浙超''）的分组问题，建立了系统的数学模型与优化方案。64支参赛队伍（11个市级队和53个县级队）需分为16个小组，每组4队，并满足严格的行政隶属约束。
@@ -77,7 +58,11 @@
 本文的方法具有良好的可扩展性和可解释性，可为类似体育赛事分组问题提供参考。
 \end{abstract}
 
+\noindent\textbf{关键词：}数学建模；约束规划；模拟退火；蒙特卡洛模拟；Bradley-Terry模型；赛事分组
+
 \newpage
+
+%--------------------正文开始（第2页起）--------------------%
 
 \section{问题重述}
 
@@ -135,7 +120,7 @@ $d(i,j)$ & 两地球间的球面距离(km) \\
 \subsection{求解算法}
 
 \subsubsection{约束规划（CP-SAT）}
-首先使用Google OR-Tools的CP-SAT求解器生成满足硬约束的可行解。决策变量定义为：
+首先使用Google OR-Tools的CP-SAT求解器~[1]生成满足硬约束的可行解。决策变量定义为：
 \[
 x_{ij} = \begin{cases} 1, & \text{队伍}i\text{分到组}j \\ 0, & \text{否则} \end{cases}
 \]
@@ -149,14 +134,14 @@ x_{ij} = \begin{cases} 1, & \text{队伍}i\text{分到组}j \\ 0, & \text{否则
 \end{align}
 
 \subsubsection{模拟退火优化}
-在CP-SAT可行解的基础上，使用模拟退火算法优化软约束。优化目标为最小化同市县级队被分到同组的对数。
+在CP-SAT可行解的基础上，使用模拟退火算法[5]优化软约束。优化目标为最小化同市县级队被分到同组的对数。
 
 参数设置：初始温度$T_0=100$，冷却系数$\alpha=0.995$，终止温度$T_f=1$，最大迭代次数根据问题规模调整。邻域操作为随机交换两个组中的县级队（保持硬约束不变）。
 
 \subsection{结果分析}
 共生成6个分组方案，其中方案1和方案2由CP-SAT生成，方案3--6由贪心+随机化生成，所有方案均经模拟退火优化。6个方案全部满足硬约束，软约束违反次数均为0。
 
-最优方案（方案1）的分组详情如表\ref{tab:solution1}所示。这里的最优准则为：先最小化软约束违反次数，再最小化组间GDP变异系数。
+最优方案（方案1）的分组详情如表~\ref{tab:solution1}所示。这里的最优准则为：先最小化软约束违反次数，再最小化组间GDP变异系数。
 
 \begin{table}[H]
 \centering
@@ -188,7 +173,7 @@ x_{ij} = \begin{cases} 1, & \text{队伍}i\text{分到组}j \\ 0, & \text{否则
 
 该方案GDP均值为7386亿元，变异系数为0.778，表明组间经济实力存在一定差异（主要由杭州市、宁波市GDP较高导致），但在6个可行方案中均衡性较优。
 
-各方案的GDP均衡性和软约束违反情况如图\ref{fig:gdp}和图\ref{fig:soft}所示。
+各方案的GDP均衡性和软约束违反情况如图~\ref{fig:gdp}和图~\ref{fig:soft}所示。
 
 \begin{figure}[H]
 \centering
@@ -204,7 +189,7 @@ x_{ij} = \begin{cases} 1, & \text{队伍}i\text{分到组}j \\ 0, & \text{否则
 \label{fig:soft}
 \end{figure}
 
-分组方案的综合评价雷达图如图\ref{fig:radar}所示。
+分组方案的综合评价雷达图如图~\ref{fig:radar}所示。
 
 \begin{figure}[H]
 \centering
@@ -213,7 +198,7 @@ x_{ij} = \begin{cases} 1, & \text{队伍}i\text{分到组}j \\ 0, & \text{否则
 \label{fig:radar}
 \end{figure}
 
-最优方案的分组热力图如图\ref{fig:heatmap}所示。
+最优方案的分组热力图如图~\ref{fig:heatmap}所示。
 
 \begin{figure}[H]
 \centering
@@ -257,7 +242,7 @@ A_c = \{g\in G:\ |g|<4,\ g\ne g_{\mathrm{city}}(c)\}
     \item 3次及以上：约21.5\%
 \end{itemize}
 
-抽签公平性热力图如图\ref{fig:fairness}所示。
+抽签公平性热力图如图~\ref{fig:fairness}所示。
 
 \begin{figure}[H]
 \centering
@@ -284,7 +269,7 @@ d(i,j) = 2R \cdot \arcsin\left(\sqrt{\sin^2\frac{\Delta\varphi}{2} + \cos\varphi
 其中$R=6371$km为地球半径。
 
 \subsection{选址结果}
-最终确定8个比赛城市及其承办的小组如表\ref{tab:venues}所示。
+最终确定8个比赛城市及其承办的小组如表~\ref{tab:venues}所示。
 
 \begin{table}[H]
 \centering
@@ -306,7 +291,7 @@ d(i,j) = 2R \cdot \arcsin\left(\sqrt{\sin^2\frac{\Delta\varphi}{2} + \cos\varphi
 \end{tabular}
 \end{table}
 
-整体统计：平均距离124.5km，标准差79.1km，变异系数0.636。各队到比赛地的距离分布如图\ref{fig:distance}所示。
+整体统计：平均距离124.5km，标准差79.1km，变异系数0.636。各队到比赛地的距离分布如图~\ref{fig:distance}所示。
 
 \begin{figure}[H]
 \centering
@@ -315,18 +300,16 @@ d(i,j) = 2R \cdot \arcsin\left(\sqrt{\sin^2\frac{\Delta\varphi}{2} + \cos\varphi
 \label{fig:distance}
 \end{figure}
 
-比赛地点的地理分布可通过交互式地图（\texttt{output/task3\_venue\_map.html}）查看，其中包含各队位置、比赛地点和连线。
-
 \section{赛制建议（Task 4）}
 
 \subsection{实力模型}
-基于GDP数据构建队伍实力分数。采用对数归一化处理GDP数据，并加入随机噪声以反映不确定性：
+基于GDP数据构建队伍实力分数。采用对数归一化处理GDP数据，并加入随机噪声以反映不确定性~[2]：
 \[
 s_t = 0.3 + 0.7 \times \frac{0.7 \cdot \text{norm}(\ln(\text{GDP}_t)) + 0.3 \cdot \varepsilon_t - \min}{\max - \min}
 \]
 其中$\varepsilon_t \sim U(0,1)$为随机噪声。实力分数归一化到$[0.3, 1.0]$区间。
 
-比赛胜负采用Bradley-Terry模型：
+比赛胜负采用Bradley-Terry模型~[2]：
 \[
 P(i\text{胜}j) = \frac{s_i}{s_i + s_j}
 \]
@@ -343,7 +326,7 @@ P(i\text{胜}j) = \frac{s_i}{s_i + s_j}
 先进行3轮瑞士轮预选取前32名，再进行近似双败淘汰赛（输两场才出局）。比赛场次较多，且在模拟中夺冠概率分布更加均衡。
 
 \subsection{蒙特卡洛模拟结果}
-通过5000次蒙特卡洛模拟，得到各队在三种赛制下的夺冠概率。前5名队伍的对比如表\ref{tab:probs}所示。
+通过5000次蒙特卡洛模拟，得到各队在三种赛制下的夺冠概率。前5名队伍的对比如表~\ref{tab:probs}所示。
 
 \begin{table}[H]
 \centering
@@ -390,7 +373,7 @@ Gini系数分析：
 
 弱队（实力排名后20\%）的平均出线率为0.2805，说明当前赛制下弱队仍有一定晋级机会，但强弱差异仍然明显。
 
-夺冠概率对比如图\ref{fig:probs}所示。
+夺冠概率对比如图~\ref{fig:probs}所示。
 
 \begin{figure}[H]
 \centering
@@ -420,11 +403,12 @@ Gini系数分析：
 \end{itemize}
 
 \begin{thebibliography}{99}
-\bibitem{1} Google OR-Tools, ``CP-SAT Solver,'' \url{https://developers.google.com/optimization/cp/cp_solver}.
-\bibitem{2} Bradley, R. A., \& Terry, M. E. (1952). Rank analysis of incomplete block designs. \textit{Biometrika}, 39(3/4), 324-345.
-\bibitem{3} 浙江省统计局, ``2024年浙江省各市（县）GDP,'' 国家统计局.
-\bibitem{4} 浙江省民政厅, ``浙江省行政区划（2025年）.''
-\bibitem{5} Kirkpatrick, S., Gelatt, C. D., \& Vecchi, M. P. (1983). Optimization by simulated annealing. \textit{Science}, 220(4598), 671-680.
+\bibitem{1} Google OR-Tools, ``CP-SAT Solver,'' \url{https://developers.google.com/optimization/cp/cp_solver}，访问时间2026年5月。
+\bibitem{2} Bradley, R. A., \& Terry, M. E. Rank analysis of incomplete block designs, \textit{Biometrika}, 39(3/4): 324-345, 1952.
+\bibitem{3} 浙江省统计局, 2024年浙江省各市（县）GDP, 国家统计局, 2025年。
+\bibitem{4} 浙江省民政厅, 浙江省行政区划（2025年）, 2025年。
+\bibitem{5} Kirkpatrick, S., Gelatt, C. D., \& Vecchi, M. P. Optimization by simulated annealing, \textit{Science}, 220(4598): 671-680, 1983.
+\bibitem{6} OpenAI, GPT-4o, OpenAI Inc., 2026年5月。用于辅助代码编写与模型设计思路讨论。
 \end{thebibliography}
 
 \appendix

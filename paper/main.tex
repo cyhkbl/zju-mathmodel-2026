@@ -36,13 +36,49 @@
 \renewcommand{\algorithmicrequire}{\textbf{输入:}}
 \renewcommand{\algorithmicensure}{\textbf{输出:}}
 
-\title{\textbf{``浙超''联赛分组方案的数学建模与优化}}
-\author{}
-\date{\today}
+%--------------------封面设置-------------------------%
+\makeatletter
+\newcommand\dlmu[2][6cm]{\hskip1pt\underline{\hb@xt@ #1{\hss#2\hss}}\hskip3pt}
+\makeatother
 
 \begin{document}
 
-\maketitle
+%--------------------封面页--------------------------%
+\begin{titlepage}
+\begin{center}
+
+\vspace*{1cm}
+
+% 浙大校徽和校名
+\includegraphics[width=0.25\textwidth]{figures/zju_logo.png}
+\hspace{0.5cm}
+\includegraphics[width=0.5\textwidth]{figures/zju_char.png}
+
+\vspace{2cm}
+
+% 论文标题
+{\heiti\Huge\textbf{``浙超''联赛分组方案的数学建模与优化}}
+
+\vspace{2.5cm}
+
+% 作者信息
+{\kaishu\Large 队员\ \dlmu[6cm]{陈逸恒} \qquad \\}
+\vspace{0.6cm}
+{\kaishu\Large 学号\ \dlmu[6cm]{3250102535} \qquad \\}
+\vspace{0.6cm}
+{\kaishu\Large 学院\ \dlmu[6cm]{求是学院} \\}
+
+\vspace{2cm}
+
+{\large\today}
+
+\end{center}
+\end{titlepage}
+
+\thispagestyle{empty}
+\setcounter{page}{0}
+
+%--------------------正文开始-------------------------%
 
 \begin{abstract}
 本文针对2025年浙江省市县联赛（``浙超''）的分组问题，建立了系统的数学模型与优化方案。64支参赛队伍（11个市级队和53个县级队）需分为16个小组，每组4队，并满足严格的行政隶属约束。

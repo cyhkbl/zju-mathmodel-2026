@@ -15,7 +15,6 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.data import ALL_TEAMS, TEAM_BY_CODE, CITY_CODES, NUM_GROUPS
 from src.grouping import (
     generate_solutions, format_solution_table, evaluate_groups,
-    simulated_annealing, generate_greedy_random,
 )
 from src.lottery import (
     run_lottery, lottery_to_groups, simulate_lottery_fairness,
@@ -53,20 +52,6 @@ def run_task1():
     print("=" * 60)
 
     solutions = generate_solutions(n=6, method="mixed", seed=42)
-
-    # 对每个方案做SA优化
-    for sol in solutions:
-        if sol["eval"]["soft_violations"] > 0:
-            print(f"  方案{sol['id']} 软约束违反={sol['eval']['soft_violations']}，尝试SA优化...")
-            optimized, sa_info = simulated_annealing(
-                sol["groups"], max_iter=30000, seed=42 + sol["id"]
-            )
-            opt_eval = evaluate_groups(optimized)
-            if opt_eval["soft_violations"] < sol["eval"]["soft_violations"]:
-                sol["groups"] = optimized
-                sol["eval"] = opt_eval
-                sol["method"] += "+SA"
-                print(f"    → 优化后违反={opt_eval['soft_violations']}")
 
     # 输出
     report_lines = ["Task 1: 分组方案", "=" * 60, ""]

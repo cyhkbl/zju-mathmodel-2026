@@ -314,6 +314,102 @@ def simulated_annealing(
             break
  
     return best, {"history": history, "final_cost": best_cost}
+
+
+def _repair_soft_violations(groups: list[list[str]]) -> list[list[str]]:
+    """
+    确定性修复：遍历每个软约束违反，尝试：
+    1. 将违反的县级队移到有空位的合法组
+    2. 若所有组已满，将违反的县级队与目标组的县级队交换
+    """
+    from collections import defaultdict
+
+    result = [g[:] for g in groups]
+
+    for _ in range(50):
+        violations = count_soft_violations(result)
+        if violations["total_violations"] == 0:
+            break
+
+        fixed = False
+        for g_idx, g in enumerate(result):
+            parent_count = defaultdict(int)
+            for c in g:
+                t = TEAM_BY_CODE[c]
+                if not t["is_city"]:
+                    parent_count[t["parent"]] += 1
+
+            for parent, cnt in parent_count.items():
+                if cnt <= 1:
+                    continue
+                violating = [c for c in g if TEAM_BY_CODE[c]["parent"] == parent
+                             and not TEAM_BY_CODE[c]["is_city"]]
+                for c_to_move in violating:
+                    for target in range(NUM_GROUPS):
+                        if target == g_idx:
+                            continue
+                        # 检查目标组是否有同市县级队
+                        target_same_parent = sum(
+                            1 for c in result[target]
+                            if TEAM_BY_CODE[c]["parent"] == parent and not TEAM_BY_CODE[c]["is_city"]
+                        )
+                        if target_same_parent > 0:
+                            continue
+                        # 检查目标组是否有 parent 市级队
+                        parent_city_in_target = any(
+                            TEAM_BY_CODE[c]["code"] == parent and TEAM_BY_CODE[c]["is_city"]
+                            for c in result[target]
+                        )
+                        if parent_city_in_target:
+                            continue
+
+                        if len(result[target]) < GROUP_SIZE:
+                            # 有空位：直接移动
+                            result[g_idx].remove(c_to_move)
+                            result[target].append(c_to_move)
+                            fixed = True
+                            break
+                        else:
+                            # 满组：尝试交换（只交换县级队）
+                            counties_in_target = [c for c in result[target]
+                                                  if not TEAM_BY_CODE[c]["is_city"]]
+                            for c_swap in counties_in_target:
+                                t_swap = TEAM_BY_CODE[c_swap]
+                                # c_swap 移到 g_idx 不能违反硬约束
+                                if t_swap["parent"] == parent:
+                                    continue  # 会和 c_to_move 的 parent 市级队冲突
+                                g_idx_has_parent_city = any(
+                                    TEAM_BY_CODE[c]["code"] == t_swap["parent"] and TEAM_BY_CODE[c]["is_city"]
+                                    for c in result[g_idx]
+                                )
+                                if g_idx_has_parent_city:
+                                    continue
+                                # c_swap 移到 g_idx 不能制造新违反
+                                g_idx_same_parent = sum(
+                                    1 for c in result[g_idx]
+                                    if TEAM_BY_CODE[c]["parent"] == t_swap["parent"]
+                                    and not TEAM_BY_CODE[c]["is_city"] and c != c_to_move
+                                )
+                                if g_idx_same_parent > 0:
+                                    continue
+
+                                # 执行交换
+                                result[g_idx].remove(c_to_move)
+                                result[target].remove(c_swap)
+                                result[g_idx].append(c_swap)
+                                result[target].append(c_to_move)
+                                fixed = True
+                                break
+                            if fixed:
+                                break
+                    if fixed:
+                        break
+                if fixed:
+                    break
+            if fixed:
+                break
+
+    return result
  
  
 # -- 多方案生成与评价 ------------------------------------------------------------
@@ -340,11 +436,12 @@ def generate_solutions(n: int = 6, method: str = "mixed", seed: int = 42) -> lis
             sol = generate_greedy_random(seed=seed + i)
             base_method = "greedy"
  
-        # 修复：对所有方案统一施加 SA 优化
+        # 对所有方案统一施加 SA 优化 + 确定性修复
         sol, sa_info = simulated_annealing(
             sol, max_iter=50000, T_start=100.0, T_end=1.0, alpha=0.995,
             seed=seed + i
         )
+        sol = _repair_soft_violations(sol)
         method_used = f"{base_method}+SA"
  
         eval_result = evaluate_groups(sol)

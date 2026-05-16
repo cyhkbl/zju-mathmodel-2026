@@ -112,35 +112,32 @@ def plot_gdp_balance(solutions, save_path=None):
 # -- 软约束违反对比 -----------------------------------------------
 
 def plot_soft_violations(solutions, save_path=None):
-    """画模拟退火优化过程中软约束违反对数的下降曲线"""
-    import matplotlib.pyplot as plt
+    """画各方案软约束违反次数柱状图"""
+    fig, ax = plt.subplots(figsize=(10, 6))
 
-    plt.figure(figsize=(10, 6))
-    has_data = False
-    for sol in solutions:
-        history = sol.get("sa_history", [])
-        if history:
-            iters = [h["iter"] for h in history]
-            costs = [h["cost"] for h in history]
-            plt.plot(iters, costs, marker='.', markersize=2, label=f"方案 {sol['id']}")
-            has_data = True
+    labels = [f"方案{sol['id']}" for sol in solutions]
+    violations = [sol["eval"]["soft_violations"] for sol in solutions]
+    colors = ["#4e79a7" if v == 0 else "#e15759" for v in violations]
 
-    if has_data:
-        plt.xlabel("迭代次数")
-        plt.ylabel("软约束违反对数")
-        plt.title("模拟退火优化过程（软约束下降曲线）")
-        plt.legend()
-        plt.grid(True, alpha=0.3)
-        plt.tight_layout()
-    else:
-        plt.text(0.5, 0.5, "所有方案初始即无软约束违反", ha='center', va='center', fontsize=14)
-        plt.title("软约束违反情况")
+    bars = ax.bar(labels, violations, color=colors, edgecolor="white", width=0.6)
 
+    # 在柱子上方标注数值
+    for bar, v in zip(bars, violations):
+        ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.05,
+                str(v), ha="center", va="bottom", fontsize=11, fontweight="bold")
+
+    ax.set_ylabel("软约束违反次数")
+    ax.set_title("各方案软约束违反次数对比")
+    ax.set_ylim(0, max(max(violations) * 1.3, 1))
+    ax.grid(True, alpha=0.3, axis="y")
+    ax.axhline(y=0, color="green", linestyle="--", alpha=0.5, label="理想值(0)")
+    ax.legend()
+
+    plt.tight_layout()
     if save_path:
-        plt.savefig(save_path, dpi=150)
-        plt.close()
-    else:
-        plt.show()
+        fig.savefig(save_path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    return save_path
 
 
 # -- 比赛地点地图（folium）-----------------------------------------
